@@ -325,9 +325,6 @@ function startFlying() {
 	dom.pause.hidden = true;
 	hud.show();
 	hud.skipFrames( 12 );
-	input.resetStick( drone.hoverThrottle );
-
-	if ( input.source !== 'gamepad' ) input.requestCapture();
 
 	lastTime = performance.now();
 	cancelAnimationFrame( rafId );
@@ -341,7 +338,6 @@ function pauseFlight() {
 
 	phase = 'paused';
 	cancelAnimationFrame( rafId );
-	input.releaseCapture();
 	hud.hide();
 	dom.pause.hidden = false;
 	buildPauseSettings( dom.pauseSettings, config, onLiveSettingChange );
@@ -352,7 +348,6 @@ function backToMenu() {
 
 	phase = 'menu';
 	cancelAnimationFrame( rafId );
-	input.releaseCapture();
 	hud.hide();
 	dom.pause.hidden = true;
 	dom.loading.hidden = true;
@@ -374,7 +369,6 @@ function frame( now ) {
 	if ( input.consumeKey( 'KeyR' ) ) {
 
 		drone.respawn();
-		input.resetStick( drone.hoverThrottle );
 		hud.skipFrames( 4 );
 
 	}
@@ -496,7 +490,7 @@ function init() {
 	};
 
 	registerServiceWorker();
-	input.attach( document.body );
+	input.attach();
 	setupMenu();
 
 	dom.btnFly.addEventListener( 'click', () => loadAndFly( { demo: false } ) );
@@ -519,36 +513,6 @@ function init() {
 	window.addEventListener( 'resize', () => {
 
 		if ( world ) resize( world.renderer, world.camera, world.tiles, config );
-
-	} );
-
-	// Salir del pointer lock (el Esc del navegador) equivale a pausar. Sólo
-	// cuenta si llegamos a tenerlo: si el navegador nunca lo concedió, un
-	// evento suelto no debe echarnos del vuelo.
-	let hadPointerLock = false;
-	document.addEventListener( 'pointerlockchange', () => {
-
-		if ( document.pointerLockElement ) {
-
-			hadPointerLock = true;
-
-		} else if ( hadPointerLock ) {
-
-			hadPointerLock = false;
-			if ( phase === 'flying' ) pauseFlight();
-
-		}
-
-	} );
-
-	// Volver a capturar el ratón al hacer clic sobre el vuelo.
-	document.addEventListener( 'click', event => {
-
-		if ( phase === 'flying' && ! document.pointerLockElement && input.source !== 'gamepad' ) {
-
-			input.requestCapture();
-
-		}
 
 	} );
 
