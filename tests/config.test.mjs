@@ -214,9 +214,9 @@ check( 'ningún min/max/step literal en menu.js', literals.length === 0, literal
 //
 // El guardián no admite excepciones: `ui` es el recorrido de los deslizadores y
 // nada más. Los valores sin control —`voxelSize`, `crashSpeed`, `deadzone`,
-// `mouseSens`, `restitution`, `friction`, `maxSpin`— no tienen entrada aquí; lo
-// que los valida es el contrato de `src/config.js`, que es otra cosa y se
-// comprueba arriba.
+// `restitution`, `friction`, `maxSpin`— no tienen entrada aquí; lo que los
+// valida es el contrato de `src/config.js`, que es otra cosa y se comprueba
+// arriba.
 const unused = Object.keys( baseConfig.ui ).filter( name => ! new RegExp( `ui\\.${ name }\\b` ).test( menuSource ) );
 check( 'todos los rangos de ui se usan en el menú', unused.length === 0, unused.join( ', ' ) );
 
@@ -226,6 +226,25 @@ const worldSource = await read( 'world.js' );
 const mainSource = await read( 'main.js' );
 check( 'la escala de la niebla vive en un solo sitio',
 	! /0\.00012/.test( mainSource ) && ( worldSource.match( /0\.00012/g ) || [] ).length === 1 );
+
+console.log( '\n== el vuelo por ratón y teclado no vuelve ==' );
+
+// Es el tipo de código que reaparece solo: alguien echa de menos poder probar
+// sin mando y vuelve a colar un stick virtual. El camino se quitó a propósito
+// —se pilota con mando— y esto lo deja por escrito donde falla. Se miran las
+// dos capas: el código que pilotaría y los valores que lo configuraban.
+const inputSource = await read( 'input.js' );
+const configSource = await read( 'config.js' );
+const fileSource = await ( await import( 'node:fs/promises' ) ).readFile(
+	new URL( '../vuela.config.js', import.meta.url ), 'utf8' );
+
+const todo = inputSource + mainSource + menuSource + configSource + fileSource;
+
+for ( const rastro of [ 'mouseSens', 'inputMode', 'readMouseKeyboard', 'requestPointerLock', 'pointerlockchange' ] ) {
+
+	check( `sin rastro de ${ rastro }`, ! todo.includes( rastro ) );
+
+}
 
 console.log( fails ? `\n${ fails } FALLOS\n` : '\nTODO OK\n' );
 process.exit( fails ? 1 : 0 );

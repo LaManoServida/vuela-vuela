@@ -68,14 +68,12 @@ export default {
 	//  Entrada
 	// =====================================================================
 
-	inputMode: 'auto',         // 'auto' | 'gamepad' | 'mouse'
 	deadzone: 0.04,
-	mouseSens: 0.0028,
 
-	// Sin mapeo el mando se IGNORA: aunque esté conectado se pilota con ratón y
-	// teclado hasta que pulses «Mapeo por defecto» —o detectes un eje— en el
-	// panel de mando del menú. Para dejarlo fijado desde aquí y no tener que
-	// tocar nada al arrancar:
+	// Se vuela con mando y nada más. Sin mapeo el mando se IGNORA: aunque esté
+	// conectado, no se despega hasta que pulses «Mapeo por defecto» —o detectes
+	// los cuatro ejes— en el panel de mando. Para dejarlo fijado desde aquí y no
+	// tener que tocar nada al arrancar:
 	//   { roll: { axis: 0, inv: false }, pitch: { axis: 1, inv: true },
 	//     yaw:  { axis: 2, inv: false }, throttle: { axis: 3, inv: true } }
 	gamepadMap: null,
@@ -286,7 +284,7 @@ export default {
 	//  Cada entrada tiene que tener un control en `menu.js` que la use: un rango
 	//  que no gobierna ningún deslizador es peso muerto y el test lo caza. Por
 	//  eso los valores sin control —`voxelSize`, `crashSpeed`, `deadzone`,
-	//  `mouseSens`, `restitution`, `friction`, `maxSpin`— NO aparecen aquí.
+	//  `restitution`, `friction`, `maxSpin`— NO aparecen aquí.
 	//
 	//  `path` es la ruta al valor que ese control gobierna: sirve para
 	//  comprobar al arrancar que el valor de arriba existe y cae dentro de su

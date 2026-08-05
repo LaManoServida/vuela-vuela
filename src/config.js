@@ -119,9 +119,7 @@ export const SCHEMA = block( {
 	battery: bool(),
 
 	// --- Entrada ---
-	inputMode: text( 'auto', 'gamepad', 'mouse' ),
 	deadzone: num( 0, 0.9 ),           // `input.js` divide por `1 - deadzone`
-	mouseSens: pos(),
 	gamepadMap: orNull( block( {
 		roll: padAxis,
 		pitch: padAxis,
