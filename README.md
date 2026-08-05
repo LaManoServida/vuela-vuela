@@ -238,7 +238,9 @@ enfoque es el contrario: se paga todo el coste antes de despegar.
    trabajo por píxel.
 6. **Colisiones O(1).** Nada de raycasts contra la malla. Durante la carga se voxeliza la
    geometría en una rejilla de bits (~2 m, decenas de MB) y colisionar es una consulta de
-   coste constante — ~40 ns, medido en los tests.
+   coste constante — ~40 ns, medido en los tests. Se voxeliza lo que el tileset **dibuja**,
+   no lo que tiene cargado: la caché no descarta nada, así que los tiles ancestros siguen en
+   memoria, y son el globo entero resuelto con un par de cientos de triángulos.
 7. **Física de paso fijo a 1 kHz**, desacoplada del render y sin asignar memoria en el
    bucle (no hay presión de GC). A 40 m/s el dron avanza 4 cm por subpaso, muy por debajo
    de un vóxel: la detección es continua sin hacer nada especial. El modelo completo
@@ -297,7 +299,11 @@ distintos en cada brazo, modo angle y horizon, airmode, los regímenes de la hé
 (ascenso, anillo de vórtices, autorrotación, traslación), la batería, el acoplamiento del
 hardware con el vuelo, y estabilidad numérica tras un minuto de pilotaje aleatorio con paso
 de render variable. `tests/world.test.mjs` cubre la voxelización de geometría real, la caída
-libre, el choque contra fachada y posarse sin temblar. Todo en Node, sin navegador.
+libre, el choque contra fachada y posarse sin temblar. Cubre también las dos formas que tiene
+la rejilla de irse de las manos: que un tile cargado pero **no dibujado** —un ancestro de
+miles de kilómetros— no dicte la altura de la rejilla, y que el tope de 64 MB se respete pase
+lo que pase con la extensión, porque pasarse no da una rejilla grande, da un `RangeError` y
+una pestaña muerta. Todo en Node, sin navegador.
 
 Fallos reales que salieron de estos tests:
 

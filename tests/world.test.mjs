@@ -2,7 +2,7 @@
  * Prueba el voxelizador contra geometría real (la ciudad de demo) en lugar de
  * una losa sintética: es donde se ve si el muestreo de triángulos deja agujeros.
  */
-import { Scene, Vector3 } from 'three';
+import { Scene, Vector3, Group, Mesh, BufferGeometry, BufferAttribute } from 'three';
 import { createDemoWorld } from '../src/demoWorld.js';
 import { buildCollisionGrid } from '../src/voxels.js';
 import { Quad } from '../src/flight/quad.js';
@@ -198,6 +198,82 @@ console.log( '\n== coste por consulta ==' );
 	const ns = ( performance.now() - t ) * 1e6 / n;
 	check( 'isSolid por debajo de 250 ns por consulta', ns < 250,
 		`${ ns.toFixed( 0 ) } ns de media en 2 M consultas (${ hits } impactos)` );
+}
+
+console.log( '\n== los tiles que no se dibujan no entran en la rejilla ==' );
+{
+	// Lo que manda Google: junto a los tiles finos de la zona siguen CARGADOS sus
+	// ancestros —el globo entero resuelto con 251 triángulos—, porque la caché
+	// está puesta para no descartar nada. No se dibujan, pero contienen la zona,
+	// así que ningún filtro lateral los descarta y su caja envolvente mide miles
+	// de kilómetros de alto. Si entran en el cálculo de la extensión, la rejilla
+	// pide gigabytes y el navegador tira `RangeError`.
+
+	/** Una malla suelta dentro de su propio grupo, como llega cada tile. */
+	const tileScene = positions => {
+
+		const geometry = new BufferGeometry();
+		geometry.setAttribute( 'position', new BufferAttribute( new Float32Array( positions ), 3 ) );
+		const group = new Group();
+		group.add( new Mesh( geometry ) );
+		group.updateMatrixWorld( true );
+		return group;
+
+	};
+
+	// Tile fino: suelo con un edificio, dentro de la zona. El suelo va en
+	// triángulos de 20 m, como los de un tile fotogramétrico de verdad: con uno
+	// solo de 1,2 km el tope de 64 muestras por triángulo lo dejaría agujereado
+	// y estaríamos midiendo eso en vez de lo que toca.
+	const suelo = [];
+	for ( let x = - 600; x < 600; x += 20 ) {
+		for ( let z = - 600; z < 600; z += 20 ) {
+			suelo.push(
+				x, 0, z, x + 20, 0, z, x + 20, 0, z + 20,
+				x, 0, z, x + 20, 0, z + 20, x, 0, z + 20,
+			);
+		}
+	}
+	const fino = tileScene( [ ...suelo, - 40, 0, - 40, 40, 0, - 40, 0, 120, 0 ] );
+
+	// Ancestro basto: 8.000 km de lado, del otro lado del planeta hasta arriba.
+	const ancestro = tileScene( [
+		- 4e6, - 12.7e6, - 4e6, 4e6, 2e6, - 4e6, 0, 6e6, 4e6,
+	] );
+
+	const fuente = {
+		visibleTiles: new Set( [ { engineData: { scene: fino } } ] ),
+		forEachLoadedModel( callback ) { callback( fino, null ); callback( ancestro, null ); },
+	};
+
+	const g = await buildCollisionGrid( { tiles: fuente, config, steps } );
+
+	check( 'la rejilla se construye', !! g );
+	check( 'la altura sale de lo que se dibuja', g && g.max.y - g.min.y < 1000,
+		g ? `${ Math.round( g.max.y - g.min.y ) } m` : '' );
+	check( 'conserva el tamaño de vóxel pedido', g && g.voxelSize === config.voxelSize,
+		g ? `${ g.voxelSize.toFixed( 2 ) } m` : '' );
+	check( 'el suelo del tile fino es sólido', g && g.isSolid( 100, 0, 100 ) );
+}
+
+console.log( '\n== el presupuesto de memoria no es negociable ==' );
+{
+	// Segunda línea de defensa: aunque la extensión sea absurda —una fuente sin
+	// lista de visibles, un sitio con un desnivel salvaje—, la rejilla tiene que
+	// caber en el tope. Rendirse y reservar de más es lo que rompe la pestaña.
+	const geometry = new BufferGeometry();
+	geometry.setAttribute( 'position', new BufferAttribute( new Float32Array( [
+		- 600, - 600000, - 600, 600, 0, - 600, 600, 0, 600,
+	] ), 3 ) );
+	const group = new Group();
+	group.add( new Mesh( geometry ) );
+	group.updateMatrixWorld( true );
+
+	const fuente = { forEachLoadedModel( callback ) { callback( group, null ); } };
+	const g = await buildCollisionGrid( { tiles: fuente, config, steps } );
+
+	check( 'cabe en el tope de 64 MB', g && g.bytes <= 64 * 1048576,
+		g ? `${ ( g.bytes / 1048576 ).toFixed( 0 ) } MB` : '' );
 }
 
 demo.dispose();

@@ -105,6 +105,41 @@ const _worldBox = new Box3();
 const _mat = new Matrix4();
 
 /**
+ * Recorre las mallas que el tileset está DIBUJANDO, no las que tiene cargadas.
+ *
+ * No es lo mismo: la caché está puesta para no descartar nada (`world.js`), así
+ * que cuando un tile se refina sus ancestros siguen en memoria aunque ya no se
+ * pinten. Y los ancestros de un tileset planetario son el globo entero resuelto
+ * con un par de cientos de triángulos: cajas envolventes de miles de kilómetros
+ * que CONTIENEN la zona —así que ningún filtro lateral las descarta— y que
+ * arrastraban la altura de la rejilla a la escala del planeta. Con Manhattan
+ * cargado eso pedía 12 GB y el navegador respondía `RangeError`.
+ *
+ * Colisionar contra lo que se ve es además lo correcto: los ancestros son una
+ * versión basta del mismo terreno, a decenas de metros de donde está de verdad.
+ *
+ * `visibleTiles` lo mantiene el TilesRenderer; la ciudad de demo no lo tiene y
+ * cae al recorrido normal, que en su caso es exactamente lo que se dibuja.
+ */
+function forEachDisplayedModel( source, callback ) {
+
+	if ( ! source.visibleTiles ) {
+
+		source.forEachLoadedModel( callback );
+		return;
+
+	}
+
+	for ( const tile of source.visibleTiles ) {
+
+		const scene = tile.engineData && tile.engineData.scene;
+		if ( scene ) callback( scene, tile );
+
+	}
+
+}
+
+/**
  * Construye la rejilla a partir de la geometría ya cargada. Se trocea en
  * ventanas de unos milisegundos para que la pantalla de carga siga viva.
  */
@@ -121,7 +156,7 @@ export async function buildCollisionGrid( { tiles, config, steps, signal } ) {
 	let minY = Infinity;
 	let maxY = - Infinity;
 
-	tiles.forEachLoadedModel( scene => {
+	forEachDisplayedModel( tiles, scene => {
 
 		scene.traverse( child => {
 
@@ -155,18 +190,19 @@ export async function buildCollisionGrid( { tiles, config, steps, signal } ) {
 	const min = new Vector3( - half, minY, - half );
 	const max = new Vector3( half, maxY, half );
 
-	// Ajusta el tamaño de vóxel hasta caber en el presupuesto de memoria.
+	// Ajusta el tamaño de vóxel hasta caber en el presupuesto de memoria. El
+	// tope no es orientativo y el bucle no se rinde: con un número fijo de
+	// pasos, una extensión bastante mayor de lo previsto agotaba los intentos y
+	// la rejilla se construía igual, pidiendo gigabytes que el navegador no da.
+	// Vale más una rejilla basta que una pestaña muerta. Termina siempre: las
+	// celdas bajan con el cubo del tamaño de vóxel.
+	const cellsFor = size =>
+		Math.ceil( ( max.x - min.x ) / size ) *
+		Math.ceil( ( max.y - min.y ) / size ) *
+		Math.ceil( ( max.z - min.z ) / size );
+
 	let voxelSize = config.voxelSize;
-	for ( let i = 0; i < 8; i ++ ) {
-
-		const cells =
-			Math.ceil( ( max.x - min.x ) / voxelSize ) *
-			Math.ceil( ( max.y - min.y ) / voxelSize ) *
-			Math.ceil( ( max.z - min.z ) / voxelSize );
-		if ( cells / 8 <= MAX_BYTES ) break;
-		voxelSize *= 1.25;
-
-	}
+	while ( cellsFor( voxelSize ) / 8 > MAX_BYTES ) voxelSize *= 1.25;
 
 	const grid = new VoxelGrid( min, max, voxelSize );
 
