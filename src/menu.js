@@ -265,17 +265,17 @@ export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
 		] ),
 		h( 'div', { class: 'grid', style: 'margin-top:6px' }, [
 			labelledSlider( 'Radio a máximo detalle', config, 'radius', {
-				min: 300, max: 3000, step: 50,
+				...ui.radius,
 				format: v => `${ v } m`,
 				onChange: () => { refreshEstimate(); onChange?.( 'radius' ); },
 			} ),
 			labelledSlider( 'Calidad (menor = más detalle)', config, 'quality', {
-				min: 6, max: 40, step: 1,
+				...ui.quality,
 				format: v => `${ v }`,
 				onChange: () => { refreshEstimate(); onChange?.( 'quality' ); },
 			} ),
 			labelledSlider( 'Altura de aparición', config, 'spawnHeight', {
-				min: 2, max: 300, step: 1,
+				...ui.spawnHeight,
 				format: v => `${ v } m`,
 			} ),
 		] ),
@@ -295,16 +295,16 @@ export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
 		h( 'legend', { text: 'Imagen' } ),
 		h( 'div', { class: 'grid' }, [
 			labelledSlider( 'FOV', config, 'fov', {
-				min: 70, max: 160, step: 1, format: v => `${ v }°`, onChange,
+				...ui.fov, format: v => `${ v }°`, onChange,
 			} ),
 			labelledSlider( 'Inclinación de cámara', config, 'camTilt', {
-				min: 0, max: 55, step: 1, format: v => `${ v }°`, onChange,
+				...ui.camTilt, format: v => `${ v }°`, onChange,
 			} ),
 			labelledSlider( 'Escala de render', config, 'renderScale', {
-				min: 0.5, max: 1.5, step: 0.05, format: v => `${ Math.round( v * 100 ) }%`, onChange,
+				...ui.renderScale, format: v => `${ Math.round( v * 100 ) }%`, onChange,
 			} ),
 			labelledSlider( 'Niebla', config, 'fogDensity', {
-				min: 0, max: 2.5, step: 0.1, format: v => v.toFixed( 1 ), onChange,
+				...ui.fogDensity, format: v => v.toFixed( 1 ), onChange,
 			} ),
 		] ),
 		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
@@ -341,23 +341,23 @@ export function buildFlightPanel( config, onChange ) {
 
 	const rp = [
 		nestedSlider( 'RC rate', bf, 'rcRate', {
-			min: 0.2, max: 2.5, step: 0.01, format: v => v.toFixed( 2 ),
+			...ui.rcRate, format: v => v.toFixed( 2 ),
 			onChange: refreshRates, notify: 'rates',
 		} ),
 		nestedSlider( 'Super rate', bf, 'superRate', {
-			min: 0, max: 0.95, step: 0.01, format: v => v.toFixed( 2 ),
+			...ui.superRate, format: v => v.toFixed( 2 ),
 			onChange: refreshRates, notify: 'rates',
 		} ),
 		nestedSlider( 'Expo', bf, 'rcExpo', {
-			min: 0, max: 0.9, step: 0.01, format: v => v.toFixed( 2 ),
+			...ui.rcExpo, format: v => v.toFixed( 2 ),
 			onChange: refreshRates, notify: 'rates',
 		} ),
 		nestedSlider( 'RC rate de yaw', bf, 'rcYawRate', {
-			min: 0.2, max: 2.5, step: 0.01, format: v => v.toFixed( 2 ),
+			...ui.rcYawRate, format: v => v.toFixed( 2 ),
 			onChange: refreshRates, notify: 'rates',
 		} ),
 		nestedSlider( 'Super rate de yaw', bf, 'superRateYaw', {
-			min: 0, max: 0.95, step: 0.01, format: v => v.toFixed( 2 ),
+			...ui.superRateYaw, format: v => v.toFixed( 2 ),
 			onChange: refreshRates, notify: 'rates',
 		} ),
 	];
@@ -373,7 +373,7 @@ export function buildFlightPanel( config, onChange ) {
 				return h( 'label', { class: 'pid-cell' }, [
 					h( 'span', { text: k === 'dMax' ? 'D' : k.toUpperCase() } ),
 					h( 'input', {
-						type: 'number', min: 0, max: 250, step: 1,
+						type: 'number', min: ui.pidGain.min, max: ui.pidGain.max, step: ui.pidGain.step,
 						value: axis[ k ],
 						disabled: disabled || null,
 						title: disabled ? 'En un cuadricóptero el yaw no lleva D: el mezclador sólo suma P+I+F en ese eje' : null,
@@ -422,12 +422,12 @@ export function buildFlightPanel( config, onChange ) {
 
 		h( 'div', { class: 'grid' }, [
 			nestedSlider( 'Anti-gravity', bf, 'antiGravityGain', {
-				min: 0, max: 10, step: 0.1,
+				...ui.antiGravity,
 				format: v => v === 0 ? 'apagado' : v.toFixed( 1 ),
 				onChange, notify: 'iterm',
 			} ),
 			nestedSlider( 'TPA (atenúa P y D con gas alto)', bf, 'tpaRate', {
-				min: 0, max: 0.8, step: 0.01,
+				...ui.tpaRate,
 				format: v => v === 0 ? 'apagada' : `${ Math.round( v * 100 ) } %`,
 				onChange, notify: 'tpa',
 			} ),
@@ -476,37 +476,37 @@ export function buildHardwarePanel( config, onChange ) {
 		h( 'legend', { text: 'Aparato' } ),
 		h( 'div', { class: 'grid' }, [
 			nestedSlider( 'Masa con batería', f.frame, 'mass', {
-				min: 0.25, max: 1.4, step: 0.005,
+				...ui.mass,
 				format: v => `${ ( v * 1000 ).toFixed( 0 ) } g`,
 				onChange: refresh, notify: 'hardware',
 			} ),
 			nestedSlider( 'KV del motor', f.motor, 'kv', {
-				min: 1200, max: 4000, step: 10, format: v => `${ v } KV`,
+				...ui.motorKv, format: v => `${ v } KV`,
 				onChange: refresh, notify: 'hardware',
 			} ),
 			nestedSlider( 'Límite de corriente', f.motor, 'currentLimit', {
-				min: 10, max: 60, step: 1, format: v => `${ v } A`,
+				...ui.motorCurrent, format: v => `${ v } A`,
 				onChange: refresh, notify: 'hardware',
 			} ),
 			nestedSlider( 'Diámetro de hélice', f.prop, 'diameterIn', {
-				min: 2, max: 7, step: 0.1, format: v => `${ v.toFixed( 1 ) }"`,
+				...ui.propDiameter, format: v => `${ v.toFixed( 1 ) }"`,
 				onChange: refresh, notify: 'hardware',
 			} ),
 			nestedSlider( 'Paso de hélice', f.prop, 'pitchIn', {
-				min: 2, max: 7, step: 0.1, format: v => `${ v.toFixed( 1 ) }"`,
+				...ui.propPitch, format: v => `${ v.toFixed( 1 ) }"`,
 				onChange: refresh, notify: 'hardware',
 			} ),
 			nestedSlider( 'Celdas de la batería', f.battery, 'cells', {
-				min: 2, max: 8, step: 1, format: v => `${ v }S (${ ( v * 4.2 ).toFixed( 1 ) } V)`,
+				...ui.batteryCells, format: v => `${ v }S (${ ( v * f.battery.cellFullV ).toFixed( 1 ) } V)`,
 				onChange: refresh, notify: 'hardware',
 			} ),
 			nestedSlider( 'Longitud de brazo', f.frame, 'armRadius', {
-				min: 0.05, max: 0.30, step: 0.005,
+				...ui.armRadius,
 				format: v => `${ ( v * 1000 ).toFixed( 0 ) } mm`,
 				onChange: refresh, notify: 'hardware',
 			} ),
 			nestedSlider( 'Arrastre frontal', f.frame.dragArea, 'z', {
-				min: 0.004, max: 0.06, step: 0.001,
+				...ui.dragFront,
 				format: v => `${ ( v * 10000 ).toFixed( 0 ) } cm²`,
 				onChange: refresh, notify: 'drag',
 			} ),
@@ -752,28 +752,28 @@ export function buildPauseSettings( container, config, onChange ) {
 				{ value: 'horizon', label: 'Horizon' },
 			], onChange, 'mode' ),
 			labelledSlider( 'FOV', config, 'fov', {
-				min: 70, max: 160, step: 1, format: v => `${ v }°`, onChange,
+				...ui.fov, format: v => `${ v }°`, onChange,
 			} ),
 			labelledSlider( 'Inclinación de cámara', config, 'camTilt', {
-				min: 0, max: 55, step: 1, format: v => `${ v }°`, onChange,
+				...ui.camTilt, format: v => `${ v }°`, onChange,
 			} ),
 			labelledSlider( 'Escala de render', config, 'renderScale', {
-				min: 0.5, max: 1.5, step: 0.05, format: v => `${ Math.round( v * 100 ) }%`, onChange,
+				...ui.renderScale, format: v => `${ Math.round( v * 100 ) }%`, onChange,
 			} ),
 			nestedSlider( 'RC rate', bf, 'rcRate', {
-				min: 0.2, max: 2.5, step: 0.01, format: v => v.toFixed( 2 ),
+				...ui.rcRate, format: v => v.toFixed( 2 ),
 				onChange: refreshRates, notify: 'rates',
 			} ),
 			nestedSlider( 'Super rate', bf, 'superRate', {
-				min: 0, max: 0.95, step: 0.01, format: v => v.toFixed( 2 ),
+				...ui.superRate, format: v => v.toFixed( 2 ),
 				onChange: refreshRates, notify: 'rates',
 			} ),
 			nestedSlider( 'Expo', bf, 'rcExpo', {
-				min: 0, max: 0.9, step: 0.01, format: v => v.toFixed( 2 ),
+				...ui.rcExpo, format: v => v.toFixed( 2 ),
 				onChange: refreshRates, notify: 'rates',
 			} ),
 			nestedSlider( 'Límite de inclinación (angle)', bf, 'angleLimit', {
-				min: 20, max: 80, step: 1, format: v => `${ v }°`, onChange, notify: 'mode',
+				...ui.angleLimit, format: v => `${ v }°`, onChange, notify: 'mode',
 			} ),
 		] ),
 		rateNote,

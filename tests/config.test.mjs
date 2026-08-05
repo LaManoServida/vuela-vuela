@@ -139,5 +139,20 @@ check( 'cloneFlight arrastra la tune', a.bf.pid.length === 3 );
 check( 'apiKey existe como cadena', typeof config.apiKey === 'string' );
 check( 'la apiKey no está en el fichero', baseConfig.apiKey === undefined );
 
+console.log( '\n== el menú no tiene rangos propios ==' );
+
+const menuSource = await ( await import( 'node:fs/promises' ) ).readFile(
+	new URL( '../src/menu.js', import.meta.url ), 'utf8' );
+
+// Un `min: 0.2` en el fuente del menú es un número de configuración escondido
+// en código, que es justo lo que este refactor viene a eliminar. La comilla
+// opcional es para que `step: '0.0001'` tampoco se escape por ir en cadena.
+const literals = menuSource.match( /\b(min|max|step)\s*:\s*'?-?[0-9.]+/g ) || [];
+check( 'ningún min/max/step literal en menu.js', literals.length === 0, literals.join( ', ' ) );
+
+// Y al revés: un rango declarado que no use nadie es peso muerto.
+const unused = Object.keys( baseConfig.ui ).filter( name => ! menuSource.includes( `ui.${ name }` ) );
+check( 'todos los rangos de ui se usan en el menú', unused.length === 0, unused.join( ', ' ) );
+
 console.log( fails ? `\n${ fails } FALLOS\n` : '\nTODO OK\n' );
 process.exit( fails ? 1 : 0 );
