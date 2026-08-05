@@ -510,6 +510,12 @@ export default {
 	//  Las entradas sin `path` son rangos compartidos por varios controles.
 
 	ui: {
+		// Los campos de coordenadas son de escritura libre, pero declarar su
+		// rango sirve para dos cosas: da el `step` del control y hace que una
+		// latitud imposible se detecte al arrancar en vez de al pedir tiles.
+		lat:           { path: 'lat', min: - 90, max: 90, step: 0.0001 },
+		lon:           { path: 'lon', min: - 180, max: 180, step: 0.0001 },
+
 		radius:        { path: 'radius', min: 300, max: 3000, step: 50 },
 		quality:       { path: 'quality', min: 6, max: 40, step: 1 },
 		spawnHeight:   { path: 'spawnHeight', min: 2, max: 300, step: 1 },
@@ -959,6 +965,20 @@ por:
 	for ( const place of config.places ) {
 ```
 
+Sustituir las líneas 204-205, que llevan el `step` de los campos de coordenadas como literal entre comillas:
+
+```js
+	const latInput = h( 'input', { type: 'number', step: '0.0001', value: config.lat } );
+	const lonInput = h( 'input', { type: 'number', step: '0.0001', value: config.lon } );
+```
+
+por:
+
+```js
+	const latInput = h( 'input', { type: 'number', step: ui.lat.step, value: config.lat } );
+	const lonInput = h( 'input', { type: 'number', step: ui.lon.step, value: config.lon } );
+```
+
 - [ ] **Step 8: Borrar los ficheros muertos**
 
 ```bash
@@ -1015,8 +1035,9 @@ const menuSource = await ( await import( 'node:fs/promises' ) ).readFile(
 	new URL( '../src/menu.js', import.meta.url ), 'utf8' );
 
 // Un `min: 0.2` en el fuente del menú es un número de configuración escondido
-// en código, que es justo lo que este refactor viene a eliminar.
-const literals = menuSource.match( /\b(min|max|step)\s*:\s*-?[0-9.]+/g ) || [];
+// en código, que es justo lo que este refactor viene a eliminar. La comilla
+// opcional es para que `step: '0.0001'` tampoco se escape por ir en cadena.
+const literals = menuSource.match( /\b(min|max|step)\s*:\s*'?-?[0-9.]+/g ) || [];
 check( 'ningún min/max/step literal en menu.js', literals.length === 0, literals.join( ', ' ) );
 
 // Y al revés: un rango declarado que no use nadie es peso muerto.
