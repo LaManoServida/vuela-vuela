@@ -92,7 +92,18 @@ export class InputManager {
 
 	requestCapture() {
 
-		this.element?.requestPointerLock?.();
+		// Que el navegador diga que no es lo NORMAL, no una excepción: sólo
+		// concede el pointer lock si hay un gesto del usuario reciente, y además
+		// lo veta durante un segundo largo justo después de que se salga con
+		// Esc. Las dos cosas nos pasan a diario: al terminar la carga han pasado
+		// minutos desde el clic en «volar», y quien pulsa Esc y Reanudar seguido
+		// cae dentro del veto.
+		//
+		// No hay nada que recuperar —el clic sobre el vuelo vuelve a pedirlo—,
+		// pero la petición devuelve una promesa: sin recogerla, cada negativa
+		// aparece en consola como `NotAllowedError` sin capturar.
+		const request = this.element?.requestPointerLock?.();
+		if ( request && typeof request.catch === 'function' ) request.catch( () => {} );
 
 	}
 
