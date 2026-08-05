@@ -248,6 +248,21 @@ aparece un pico, algo se quedó fuera.
 npm test
 ```
 
+`tests/config.test.mjs` es la primera en correr, antes de tocar el modelo de vuelo: valida
+el fichero en sí. Recorre `vuela.config.js` entero buscando cualquier número que no sea
+finito — un NaN se propaga en silencio hasta que el dron aparece cayendo o girando a mil
+rpm sin que nada avise — comprueba que estén los bloques que el modelo da por hechos
+(`frame`, `motor`, `esc`, `prop`, `battery`, `bf`), y que la curva del variador tenga sus 65
+puntos, monótona y entre 0 y 1. Del bloque `ui` comprueba las dos direcciones: que cada
+rango sea coherente (`min < max`, `step > 0`) y que el valor de partida caiga dentro del
+suyo, y también que ningún `min`, `max` o `step` se haya colado como literal en `menu.js`
+—un número de configuración escondido en código es justo lo que este refactor vino a
+eliminar— ni quede un rango declarado en `ui` que nadie use en el menú. Por último
+comprueba el cargador: que `cloneFlight()` devuelva una copia independiente en cada
+llamada, que tocar una copia no contamine `config.flight` (el objeto que de verdad vuela),
+y que la `apiKey` no aparezca en el fichero, porque es la única credencial y por eso vive
+fuera, en `.env.local`.
+
 `tests/flight.test.mjs` no comprueba sólo que el modelo no explote: comprueba que sigue
 representando un dron. Empuje por motor, empuje/peso, gas de sustentación, régimen y consumo
 tienen que caer en el rango de un 5" real, y la figura de mérito de la hélice en el de una
