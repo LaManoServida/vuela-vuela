@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>vuela-vuela · simulador FPV</title>
+	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🚁</text></svg>">
+	<link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+
+	<canvas id="viewport"></canvas>
+
+	<!-- Atribución obligatoria de Google (términos de Map Tiles API) -->
+	<div id="attribution"></div>
+
+	<!-- OSD / HUD -->
+	<div id="hud" hidden>
+		<div class="osd osd-tl">
+			<div id="osd-timer">00:00</div>
+			<div id="osd-battery">16.8V</div>
+			<div id="osd-power" class="dim">0 A · 0 RPM</div>
+		</div>
+		<div class="osd osd-tr">
+			<div id="osd-fps">-- fps</div>
+			<canvas id="frametime" width="180" height="46"></canvas>
+			<div id="osd-stutters" class="dim">0 tirones</div>
+		</div>
+		<div class="osd osd-bl">
+			<div id="osd-throttle">THR --%</div>
+			<div id="osd-mode">ACRO</div>
+			<!-- Un motor por barra, en la posición que ocupa visto desde arriba.
+			     Es el mismo diagnóstico que da Betaflight: si una barra se va sola,
+			     el mezclador está saturando por ese lado. -->
+			<div id="osd-motors" aria-label="motores">
+				<i></i><i></i><i></i><i></i>
+			</div>
+		</div>
+		<div class="osd osd-br">
+			<div id="osd-speed">0 km/h</div>
+			<div id="osd-alt">0 m</div>
+			<div id="osd-home">0 m</div>
+		</div>
+		<div id="crosshair">
+			<svg viewBox="0 0 100 100" width="100" height="100" aria-hidden="true">
+				<path d="M30 50 H45 M55 50 H70 M50 30 V45 M50 55 V70" />
+				<circle cx="50" cy="50" r="2" />
+			</svg>
+		</div>
+		<div id="vrs-warning" hidden>ANILLO DE VÓRTICES — sal de la vertical</div>
+		<div id="crash-banner" hidden>CRASH — pulsa <kbd>R</kbd> para reaparecer</div>
+	</div>
+
+	<!-- Menú principal / configuración -->
+	<div id="menu">
+		<div class="panel">
+			<h1>vuela<span>·</span>vuela</h1>
+			<p class="sub">Simulador FPV sobre tiles fotorrealistas 3D de Google</p>
+
+			<div id="menu-body"></div>
+
+			<div class="row actions">
+				<button id="btn-fly" class="primary">Cargar zona y volar</button>
+				<button id="btn-demo">Volar en la ciudad de prueba (sin API key)</button>
+			</div>
+			<p id="menu-note" class="note"></p>
+		</div>
+	</div>
+
+	<!-- Pantalla de carga -->
+	<div id="loading" hidden>
+		<div class="panel">
+			<h2 id="load-title">Descargando escenario…</h2>
+			<div class="bar"><div id="load-bar"></div></div>
+			<p id="load-detail" class="note"></p>
+			<ul id="load-steps"></ul>
+			<div class="row actions">
+				<button id="btn-cancel">Cancelar</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Pausa -->
+	<div id="pause" hidden>
+		<div class="panel">
+			<h2>Pausa</h2>
+			<p class="note">La zona ya está cargada en memoria: reanudar es instantáneo.</p>
+			<div class="row actions">
+				<button id="btn-resume" class="primary">Reanudar</button>
+				<button id="btn-respawn">Reaparecer</button>
+				<button id="btn-menu">Cambiar de zona</button>
+			</div>
+			<div id="pause-settings"></div>
+		</div>
+	</div>
+
+	<script type="module" src="/src/main.js"></script>
+</body>
+</html>

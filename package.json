@@ -1,0 +1,20 @@
+{
+  "name": "vuela-vuela",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Simulador FPV sobre escenario 3D fotorrealista de Google",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node tests/flight.test.mjs && node tests/world.test.mjs"
+  },
+  "dependencies": {
+    "3d-tiles-renderer": "^0.5.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "vite": "^8.2.0"
+  }
+}
