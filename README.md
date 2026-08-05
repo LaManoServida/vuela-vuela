@@ -53,11 +53,31 @@ antes de gastar cuota.
 4. *Credentials* → *Create credentials* → *API key*.
 5. Restringe la clave: *Application restrictions* → *Websites* → añade `http://127.0.0.1:5173/*`.
    En *API restrictions*, deja solo *Map Tiles API*.
-6. Pega la clave en el menú del juego (se guarda en el navegador), o crea `.env.local`:
+6. Crea `.env.local` con la clave:
 
 ```
 VITE_GOOGLE_API_KEY=AIza...
 ```
+
+También puedes pegarla en el menú del juego, pero **sólo dura esa sesión**: no
+se guarda en ningún sitio. La clave es lo único que no vive en
+`vuela.config.js`, precisamente para que ese fichero se pueda versionar.
+
+### El fichero de configuración
+
+Todos los números ajustables del simulador están en **`vuela.config.js`**, en la
+raíz: la zona, la calidad, el aparato entero (masa, motor, hélice, batería), la
+tune de Betaflight y los recorridos de los deslizadores del menú.
+
+Se lee al arrancar y **no se reescribe nunca**. Para cambiar algo de forma
+permanente, edítalo con el juego cerrado y recarga. Lo que toques desde el menú
+o desde la consola se aplica al instante pero vive sólo en memoria: al recargar
+vuelve a mandar el fichero.
+
+No hay nada guardado en el navegador. Si un valor se sale de su rango declarado
+en el bloque `ui`, se recorta y se avisa por consola; si se cuela un `NaN`, el
+arranque falla diciendo exactamente qué clave está mal, en vez de dejarte un
+dron que aparece cayendo sin explicación.
 
 ---
 
@@ -96,7 +116,8 @@ te encuentres cómodo.
 - **Colisiones** — construye la rejilla de vóxeles (unos segundos más de carga).
 
 El coste de carga crece con el **cuadrado** del radio y con el **cuadrado** del inverso de
-la calidad. Duplicar el radio es 4× de trabajo. El menú te da una estimación en vivo.
+la calidad. Duplicar el radio es 4× de trabajo. El menú te da una estimación en vivo. Todos
+estos valores, y sus recorridos, salen de `vuela.config.js`.
 
 ### Vuelo
 
@@ -271,11 +292,13 @@ Con el vuelo en marcha tienes `window.vv` para afinar en caliente:
 
 ```js
 // Controlador: se lee en cada paso, así que el cambio es inmediato.
+// Nada de esto persiste: al recargar vuelve a mandar vuela.config.js.
 vv.config.flight.bf.pid[0].p = 80      // más P en roll
 vv.config.flight.bf.superRate = 0.85   // rates más agresivos
 vv.config.flight.bf.mode = 'angle'     // autonivelado
 
 // Hardware: hay que rehacer lo que se derivó de los parámetros.
+// `vv.config.flight` y `vv.drone.params` son el mismo objeto durante el vuelo.
 vv.config.flight.frame.mass = 0.45
 vv.drone.refresh()
 vv.drone.hoverThrottle                 // recalculado
