@@ -518,7 +518,7 @@ export function buildHardwarePanel( config, onChange ) {
 
 // ---------------------------------------------------------------------------
 
-export function buildGamepadPanel( container, config, input ) {
+export function buildGamepadPanel( container, config, input, { onChange } = {} ) {
 
 	const rows = [];
 	const status = h( 'p', { class: 'note' } );
@@ -542,6 +542,7 @@ export function buildGamepadPanel( container, config, input ) {
 
 					ensureMap();
 					config.gamepadMap[ axis.id ].inv = e.target.checked;
+					onChange?.();
 
 				},
 			} ),
@@ -613,7 +614,7 @@ export function buildGamepadPanel( container, config, input ) {
 		const pad = input.getGamepad();
 		status.textContent = pad
 			? `Mando: ${ pad.id } · ${ pad.axes.length } ejes`
-			: 'Sin mando detectado. Conéctalo y mueve un stick. Mientras tanto se usan ratón y teclado.';
+			: 'Sin mando detectado. Conéctalo y mueve un stick: sin mando no se puede volar.';
 
 		if ( pad ) {
 
@@ -658,6 +659,7 @@ export function buildGamepadPanel( container, config, input ) {
 							inv: detecting.bestValue < 0,
 						};
 						detecting.tag.textContent = `eje ${ detecting.bestAxis } ✓`;
+						onChange?.();
 
 					} else {
 
@@ -690,22 +692,14 @@ export function buildGamepadPanel( container, config, input ) {
 
 					config.gamepadMap = null;
 					ensureMap();
-
-				},
-			} ),
-			h( 'button', {
-				text: 'Usar sólo ratón y teclado',
-				onclick: () => {
-
-					config.inputMode = 'mouse';
-					status.textContent = 'Forzado a ratón y teclado.';
+					onChange?.();
 
 				},
 			} ),
 		] ),
 		h( 'p', {
 			class: 'note',
-			html: '<b>Ratón y teclado:</b> el ratón es el stick derecho (roll/pitch) y <i>no se autocentra</i>, como unos gimbals reales. <kbd>W</kbd>/<kbd>S</kbd> gas, <kbd>A</kbd>/<kbd>D</kbd> yaw, <kbd>Shift</kbd> gas máximo, <kbd>Espacio</kbd> corta gas, <kbd>R</kbd> reaparecer, <kbd>Esc</kbd> pausa.',
+			html: 'Se vuela con mando: los cuatro ejes tienen que estar mapeados. Del teclado sólo quedan <kbd>R</kbd> para reaparecer y <kbd>Esc</kbd> para pausar.',
 		} ),
 	] ) );
 

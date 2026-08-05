@@ -25,6 +25,8 @@ const dom = {
 	loadSteps: document.getElementById( 'load-steps' ),
 	btnCancel: document.getElementById( 'btn-cancel' ),
 	pause: document.getElementById( 'pause' ),
+	pauseNote: document.getElementById( 'pause-note' ),
+	pauseGamepad: document.getElementById( 'pause-gamepad' ),
 	pauseSettings: document.getElementById( 'pause-settings' ),
 	btnResume: document.getElementById( 'btn-resume' ),
 	btnRespawn: document.getElementById( 'btn-respawn' ),
@@ -42,6 +44,7 @@ let phase = 'menu';        // 'menu' | 'loading' | 'flying' | 'paused'
 let abortController = null;
 let rafId = 0;
 let lastTime = 0;
+let pauseGamepad = null;   // panel de mapeo montado en la pausa
 
 // ---------------------------------------------------------------------------
 // Pantalla de carga
@@ -321,8 +324,20 @@ function renderAttribution( tiles ) {
 
 function startFlying() {
 
+	// Sin mando no se despega. La zona ya cargada NO se tira: se espera en
+	// pausa, que es donde se puede mapear el mando sin perder la descarga.
+	if ( ! input.hasControl ) {
+
+		phase = 'paused';
+		cancelAnimationFrame( rafId );
+		hud.hide();
+		openPause();
+		return;
+
+	}
+
 	phase = 'flying';
-	dom.pause.hidden = true;
+	closePause();
 	hud.show();
 	hud.skipFrames( 12 );
 
@@ -339,8 +354,45 @@ function pauseFlight() {
 	phase = 'paused';
 	cancelAnimationFrame( rafId );
 	hud.hide();
+	openPause();
+
+}
+
+/**
+ * Monta la pantalla de pausa. El panel de mando va aquí y no sólo en el menú
+ * principal a propósito: llegar al menú desde el vuelo es «Cambiar de zona», que
+ * descarga el mundo, y quedarse sin mando no puede costar una descarga entera.
+ */
+function openPause() {
+
 	dom.pause.hidden = false;
 	buildPauseSettings( dom.pauseSettings, config, onLiveSettingChange );
+
+	pauseGamepad?.dispose();
+	pauseGamepad = buildGamepadPanel( dom.pauseGamepad, config, input, { onChange: refreshResume } );
+
+	refreshResume();
+
+}
+
+function closePause() {
+
+	dom.pause.hidden = true;
+	pauseGamepad?.dispose();
+	pauseGamepad = null;
+
+}
+
+/** Reanudar sólo está disponible si hay con qué pilotar. */
+function refreshResume() {
+
+	const ready = input.hasControl;
+
+	dom.btnResume.disabled = ! ready;
+	dom.btnRespawn.disabled = ! ready;
+	dom.pauseNote.textContent = ready
+		? 'La zona ya está cargada en memoria: reanudar es instantáneo.'
+		: 'Sin mando no se vuela. Conéctalo y mapea los cuatro ejes aquí abajo; la zona sigue cargada.';
 
 }
 
@@ -349,7 +401,7 @@ function backToMenu() {
 	phase = 'menu';
 	cancelAnimationFrame( rafId );
 	hud.hide();
-	dom.pause.hidden = true;
+	closePause();
 	dom.loading.hidden = true;
 	dom.menu.hidden = false;
 	dom.menuNote.textContent = '';
@@ -519,6 +571,21 @@ function init() {
 	document.addEventListener( 'visibilitychange', () => {
 
 		if ( document.hidden ) pauseFlight();
+
+	} );
+
+	window.addEventListener( 'gamepadconnected', () => {
+
+		if ( phase === 'paused' ) refreshResume();
+
+	} );
+
+	// Quedarse sin mando en vuelo es quedarse sin control: se pausa, igual que
+	// al perder el foco de la pestaña.
+	window.addEventListener( 'gamepaddisconnected', () => {
+
+		if ( phase === 'flying' ) pauseFlight();
+		else if ( phase === 'paused' ) refreshResume();
 
 	} );
 
