@@ -1411,10 +1411,16 @@ Expected: `TODO OK`.
 
 - [ ] **Step 2: Comparar cifra a cifra con la referencia**
 
+Dos de las líneas que imprimen los tests son medidas de reloj de pared —el coste
+en `ms/s` del modelo y la latencia en `ns` de `isSolid`— y **nunca** salen
+iguales dos ejecuciones seguidas, tenga o nada que ver con el refactor. Hay que
+excluirlas o el `diff` da una falsa alarma en cada pasada:
+
 ```bash
 npm test > /tmp/final-tests.txt 2>&1
-diff <( sed -n '/curvas de rates/,$p' /tmp/baseline-tests.txt ) \
-     <( sed -n '/curvas de rates/,$p' /tmp/final-tests.txt ) && echo "IDÉNTICO"
+sin_relojes() { sed -n '/curvas de rates/,$p' "$1" | grep -vE 'ms/s|isSolid por debajo'; }
+diff <( sin_relojes /tmp/baseline-tests.txt ) \
+     <( sin_relojes /tmp/final-tests.txt ) && echo "IDÉNTICO"
 ```
 
 Expected: imprime `IDÉNTICO`. Los tests de vuelo publican valores medidos (empuje por motor, empuje/peso, RPM, gas de sustentación, figura de mérito), así que una salida idéntica demuestra que el modelo recibe exactamente los mismos parámetros que antes. **Si hay diferencias, no continúes**: algún número se transcribió mal al fichero. Localízalo comparando contra `git show <sha-del-Task-0>:src/flight/params.js`.
