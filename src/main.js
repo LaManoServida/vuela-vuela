@@ -1,7 +1,7 @@
 import { Raycaster, MathUtils } from 'three';
 
-import { config } from './config.js';
-import { createRenderer, createScene, createTiles, resize } from './world.js';
+import { config, quadOptions } from './config.js';
+import { createRenderer, createScene, createTiles, resize, fogDensityFor } from './world.js';
 import { preloadRegion, sampleGround } from './preload.js';
 import { buildCollisionGrid } from './voxels.js';
 import { createDemoWorld } from './demoWorld.js';
@@ -212,11 +212,11 @@ async function loadAndFly( { demo = false } = {} ) {
 		const groundY = findGroundHeight( tiles, world.grid );
 		steps.done( 'spawn', `terreno a ${ groundY.toFixed( 0 ) } m` );
 
-		drone = new Quad( config.flight, {
-			collisions: config.collisions,
-			crashSpeed: config.crashSpeed,
-			battery: config.battery,
-		} );
+		// `config.flight` va sin clonar a propósito: el dron y el menú de pausa
+		// comparten ese objeto, y por eso tocar un PID en pausa se nota al
+		// instante. Lo demás —colisión, batería, respuesta al choque— sale del
+		// fichero por `quadOptions()`.
+		drone = new Quad( config.flight, quadOptions() );
 		drone.grid = world.grid;
 		drone.setSpawn( 0, groundY + config.spawnHeight, 0, 0 );
 
@@ -421,7 +421,7 @@ function onLiveSettingChange( key ) {
 
 	if ( key === 'fogDensity' && world.scene.fog ) {
 
-		world.scene.fog.density = 0.00012 * config.fogDensity;
+		world.scene.fog.density = fogDensityFor( config );
 
 	}
 
@@ -432,8 +432,9 @@ function onLiveSettingChange( key ) {
 
 	}
 
+	// `crashSpeed` y la respuesta al choque no tienen control en el menú: se
+	// editan en el fichero y se leen al construir el dron.
 	if ( key === 'battery' ) drone.options.battery = config.battery;
-	if ( key === 'crashSpeed' ) drone.options.crashSpeed = config.crashSpeed;
 
 	// El bloque `flight.bf` (PID, rates, modo, filtros) lo lee el controlador en
 	// cada paso, así que esos cambios ya están aplicados. El hardware —masa,

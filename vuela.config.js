@@ -55,6 +55,13 @@ export default {
 	collisions: true,
 	voxelSize: 2.0,            // m, resolución de la rejilla de colisión
 	crashSpeed: 4.5,           // m/s de impacto que rompe el dron
+
+	// Qué pasa al chocar. Ninguno de los cuatro tiene deslizador en el menú: se
+	// tocan aquí, con el juego cerrado.
+	restitution: 0.18,         // 0 = se queda pegado a la pared, 1 = rebota como una pelota
+	friction: 0.45,            // rozamiento contra la superficie: 0 = patina, 1 = se clava
+	maxSpin: 30,               // rad/s, tope del volteo que mete un impacto descentrado
+
 	battery: true,
 
 	// =====================================================================
@@ -65,7 +72,10 @@ export default {
 	deadzone: 0.04,
 	mouseSens: 0.0028,
 
-	// null = mapeo por defecto. Para fijar el tuyo a mano:
+	// Sin mapeo el mando se IGNORA: aunque esté conectado se pilota con ratón y
+	// teclado hasta que pulses «Mapeo por defecto» —o detectes un eje— en el
+	// panel de mando del menú. Para dejarlo fijado desde aquí y no tener que
+	// tocar nada al arrancar:
 	//   { roll: { axis: 0, inv: false }, pitch: { axis: 1, inv: true },
 	//     yaw:  { axis: 2, inv: false }, throttle: { axis: 3, inv: true } }
 	gamepadMap: null,
@@ -265,9 +275,23 @@ export default {
 	// =====================================================================
 	//  Rangos de los controles del menú
 	// =====================================================================
-	//  `path` es la ruta al valor que ese control gobierna; sirve para que el
-	//  test compruebe que el valor de arriba cae dentro de su propio rango.
-	//  Las entradas sin `path` son rangos compartidos por varios controles.
+	//  Esto es el recorrido de los DESLIZADORES, no el rango válido de cada
+	//  valor: son cosas distintas y conviene no confundirlas. `ui.radius` llega
+	//  a 3000 porque es lo cómodo de ofrecer con el ratón, no porque 3500 sea
+	//  imposible; lo que de verdad admite el código (que el radio sea un número
+	//  positivo, que la banda muerta no llegue a 1, que el tamaño de vóxel no
+	//  sea 0) es el contrato de `src/config.js`, y ése es el que hace fallar el
+	//  arranque. Aquí sólo se decide qué ofrece el menú.
+	//
+	//  Cada entrada tiene que tener un control en `menu.js` que la use: un rango
+	//  que no gobierna ningún deslizador es peso muerto y el test lo caza. Por
+	//  eso los valores sin control —`voxelSize`, `crashSpeed`, `deadzone`,
+	//  `mouseSens`, `restitution`, `friction`, `maxSpin`— NO aparecen aquí.
+	//
+	//  `path` es la ruta al valor que ese control gobierna: sirve para
+	//  comprobar al arrancar que el valor de arriba existe y cae dentro de su
+	//  propio rango. Las entradas sin `path` son rangos compartidos por varios
+	//  controles.
 
 	ui: {
 		// Los campos de coordenadas son de escritura libre, pero declarar su

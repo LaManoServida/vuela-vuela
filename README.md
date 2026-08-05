@@ -74,10 +74,21 @@ permanente, edítalo con el juego cerrado y recarga. Lo que toques desde el men�
 o desde la consola se aplica al instante pero vive sólo en memoria: al recargar
 vuelve a mandar el fichero.
 
-No hay nada guardado en el navegador. Si un valor se sale de su rango declarado
-en el bloque `ui`, se recorta y se avisa por consola; si se cuela un `NaN`, el
-arranque falla diciendo exactamente qué clave está mal, en vez de dejarte un
-dron que aparece cayendo sin explicación.
+No hay nada guardado en el navegador.
+
+Como se edita a mano, el fichero se lee contra un contrato: qué claves tienen que
+estar, de qué tipo, con qué forma y entre qué límites el código sabe calcular. Si
+algo no cuadra —una clave que falta, un `mass` escrito `masa`, un número entre
+comillas, una inercia con dos componentes en vez de tres, un `voxelSize: 0`— el
+arranque **falla nombrando la ruta exacta**, en lugar de dejarte un dron que
+aparece cayendo, un alabeo que se va a NaN o unos sticks que no responden. Una
+clave de más —la otra mitad de una errata— no impide arrancar, pero se avisa por
+consola: nadie la está leyendo.
+
+Los recorridos del bloque `ui` son otra cosa distinta: son lo que ofrece el menú,
+no lo que es válido. `ui.radius` llega a 3.000 m porque es lo cómodo de mover con
+el ratón, no porque 3.500 sea imposible. Un valor fuera de su recorrido se recorta
+y se avisa por consola, pero no impide arrancar.
 
 ---
 
@@ -113,7 +124,10 @@ te encuentres cómodo.
 - **Calidad** — error geométrico objetivo dentro del radio. *Menor = más detalle y más
   descarga.* 12 es alto; 20 es el valor que Google recomienda para navegación normal.
 - **Escala de render** — si tu GPU no llega a 60 fps estables, bájala antes que la calidad.
-- **Colisiones** — construye la rejilla de vóxeles (unos segundos más de carga).
+- **Colisiones** — construye la rejilla de vóxeles (unos segundos más de carga). Lo que
+  pasa al chocar no tiene deslizador y se toca en `vuela.config.js`: `crashSpeed` (a qué
+  velocidad de impacto se rompe el dron), `restitution` (cuánto rebota), `friction`
+  (cuánto patina contra la fachada) y `maxSpin` (cuánto puede voltear un golpe descentrado).
 
 El coste de carga crece con el **cuadrado** del radio y con el **cuadrado** del inverso de
 la calidad. Duplicar el radio es 4× de trabajo. El menú te da una estimación en vivo. Todos
@@ -262,6 +276,14 @@ comprueba el cargador: que `cloneFlight()` devuelva una copia independiente en c
 llamada, que tocar una copia no contamine `config.flight` (el objeto que de verdad vuela),
 y que la `apiKey` no aparezca en el fichero, porque es la única credencial y por eso vive
 fuera, en `.env.local`.
+
+Además comprueba el contrato **por el otro lado**: coge copias del fichero, las sabotea
+como lo haría alguien editándolo a mano (borrar `radius`, escribir `mass` como `masa`,
+poner un número entre comillas, dejar la inercia en dos componentes, quitar el bloque
+`flight.motor`, poner `voxelSize: 0`, borrar `deadzone`, apuntar un `ui.*.path` a una clave
+que ya no existe) y exige que la validación devuelva un error **que nombre esa ruta**. Esto
+es lo que evita que el fichero se rompa en silencio: el flujo documentado es «edítalo y
+recarga», no «edítalo y `npm test`», así que el arranque tiene que quejarse solo.
 
 `tests/flight.test.mjs` no comprueba sólo que el modelo no explote: comprueba que sigue
 representando un dron. Empuje por motor, empuje/peso, gas de sustentación, régimen y consumo

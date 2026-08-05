@@ -1470,17 +1470,27 @@ git commit -m "chore: verificación del refactor de configuración" --allow-empt
 
 ## Fuera de alcance (decisión pendiente)
 
-Quedan constantes numéricas en código que **no** están en este plan porque caen en la frontera entre ajuste y definición. Van aquí para que la decisión sea explícita y no un olvido:
+Quedan constantes numéricas en código que **no** están en este plan porque caen en la frontera entre ajuste y definición. Van aquí para que la decisión sea explícita y no un olvido.
+
+La primera versión de esta tabla se presentaba como exhaustiva y no lo era: la revisión de la rama encontró siete sitios más que no citaba. Están añadidos abajo, marcados con «(revisión)». Todo lo que aparece aquí **se queda en código**; lo que la revisión sí sacó al fichero fue la respuesta a la colisión de `quad.js` (`crashSpeed`, que además estaba duplicado, `restitution`, `friction`, `maxSpin`), porque eso sí era ajuste puro.
 
 | Dónde | Qué | Argumento para sacarlas | Argumento para dejarlas |
 |---|---|---|---|
 | `src/world.js:20-26` | `BACKDROP_RADIUS` 22000, `BACKDROP_ERROR` 900, `MID_ERROR` 90, los tres colores de cielo y niebla | son puro ajuste visual, se tocarían para probar | nadie los ha tocado nunca; el color no es un número configurable |
-| `src/world.js:129` | el `0.00012` base de la niebla | `fogDensity` lo multiplica, así que es media constante ya | es la escala física de la exponencial, no una preferencia |
+| `src/world.js` (`BASE_FOG_DENSITY`) | el `0.00012` base de la niebla | `fogDensity` lo multiplica, así que es media constante ya | es la escala física de la exponencial, no una preferencia. La revisión sí arregló que estuviera escrito en dos sitios: ahora se exporta de `world.js` y `main.js` lo usa |
 | `src/main.js:456-462` | los umbrales `0.6 / 2 / 6` de la estimación de carga | son puros números mágicos | sólo cambian un texto de ayuda |
 | `src/hud.js:1` | `SAMPLES` 180 | es el ancho del gráfico de frametime | es el tamaño de un búfer, no un ajuste |
 | `src/input.js` | curvas de teclado y de gas | afectan al pilotaje | son la definición del modo teclado |
+| `src/voxels.js:5` (revisión) | `MAX_BYTES`, 64 MB de techo para la rejilla | una máquina con RAM de sobra querría subirlo para tener vóxeles más finos | es un presupuesto de seguridad, no un ajuste: si no cabe, el propio código sube el tamaño de vóxel hasta que quepa. Lo que el usuario elige es `voxelSize`, y eso sí está en el fichero |
+| `src/world.js:15-16` (revisión) | `NEAR` 0.15, `FAR` 40000 | deciden desde dónde y hasta dónde se ve | son el rango del buffer de profundidad, elegidos a la vez que `reversedDepthBuffer` y que el radio del telón de fondo. Tocarlos sin entender esa relación no da «más lejos», da z-fighting |
+| `src/menu.js:604` (revisión) | los 3000 ms de ventana para detectar un eje | quien tenga una emisora lenta querría más | mide la paciencia de un humano moviendo un stick: es interacción, no simulación |
+| `src/menu.js:653` (revisión) | el umbral 0.25 de movimiento para dar un eje por detectado | depende del recorrido del mando | separa un eje movido a propósito del ruido de un potenciómetro; por debajo, cualquier deriva mapea un eje que no es |
+| `src/menu.js:565-570` (revisión) | el mapeo de mando por defecto (ejes 0/1/2/3 con sus inversiones) | es literalmente configuración de mando | es el layout Modo 2 estándar, el punto de partida del botón «Mapeo por defecto». El fichero ya permite fijar el tuyo en `gamepadMap`, así que esto no es lo que se edita: es de donde se parte |
+| `src/main.js:452` (revisión) | la calidad de referencia `16` del índice de carga | es el pivote de la estimación | sólo normaliza un texto de ayuda («carga rápida», «carga larga»); no toca ni la descarga ni el render |
+| `src/flight/quad.js:16,18,22` (revisión) | `PHYSICS_HZ` 1000, `ROTOR_SUBSTEPS` 2, `MAX_SUBSTEPS` 120 | mandan sobre el coste de CPU del modelo | son la discretización del integrador, no propiedades del aparato: cambiarlas cambia los resultados del modelo y, con ellos, todas las cifras que publican los tests. Un ajuste que altera lo que mides no es un ajuste |
+| `src/config.js` (`SCHEMA`) (revisión) | los límites del contrato (`deadzone < 1`, `voxelSize ≥ 0.25`, `fov` en (0, 180)…) | son números, y están en código | no son ajustes sino la frontera de lo que el código sabe calcular, y sobre todo: son lo que valida el fichero. Un fichero que llevara sus propios límites de validez no validaría nada, porque la misma edición que rompe el valor puede romper el límite |
 
-Sacarlas es una Task 7 de una hora larga. Recomendación: dejarlas por ahora y mover sólo las de `world.js`, que son las únicas que alguien tocaría de verdad, si en algún momento apetece.
+Sacarlas es una Task 7 de una hora larga. Recomendación: dejarlas por ahora y mover sólo las de `world.js:20-26`, que son las únicas que alguien tocaría de verdad, si en algún momento apetece.
 
 ---
 

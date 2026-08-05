@@ -21,6 +21,16 @@ const BACKDROP_RADIUS = 22000;
 const BACKDROP_ERROR = 900;
 const MID_ERROR = 90;
 
+// Escala física de la niebla exponencial: con `fogDensity` a 1.0 la mitad del
+// contraste se ha ido hacia los 7 km, que es lo que se ve en un día claro de
+// ciudad. Vive aquí y se exporta porque la usan dos sitios —la creación de la
+// escena y el deslizador de niebla en caliente— y si divergen, la niebla pega
+// un salto en cuanto tocas el control.
+const BASE_FOG_DENSITY = 0.00012;
+
+/** Densidad de niebla que corresponde a la configuración dada. */
+export const fogDensityFor = config => BASE_FOG_DENSITY * config.fogDensity;
+
 const SKY_TOP = new Color( 0x2a6fb5 );
 const SKY_HORIZON = new Color( 0xbcd4e6 );
 const FOG_COLOR = new Color( 0xb4cbdd );
@@ -126,7 +136,7 @@ function createSky() {
 export function createScene( config ) {
 
 	const scene = new Scene();
-	scene.fog = new FogExp2( FOG_COLOR.getHex(), 0.00012 * config.fogDensity );
+	scene.fog = new FogExp2( FOG_COLOR.getHex(), fogDensityFor( config ) );
 	scene.background = null;
 
 	const sky = createSky();

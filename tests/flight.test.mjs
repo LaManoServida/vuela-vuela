@@ -7,7 +7,7 @@
  * rango, el modelo ha dejado de representar un dron aunque siga volando.
  */
 import { Quad } from '../src/flight/quad.js';
-import { cloneFlight } from '../src/config.js';
+import { cloneFlight, quadOptions } from '../src/config.js';
 import { Betaflight, QUAD_X, ROLL, PITCH, YAW } from '../src/flight/betaflight.js';
 import { Battery } from '../src/flight/battery.js';
 import { Prop } from '../src/flight/prop.js';
@@ -24,7 +24,7 @@ function makeQuad( tweak = () => {}, options = {} ) {
 
 	const p = cloneFlight();
 	tweak( p );
-	const q = new Quad( p, { collisions: false, battery: false, ...options } );
+	const q = new Quad( p, quadOptions( { collisions: false, battery: false, ...options } ) );
 	q.respawn();
 	return q;
 

@@ -63,13 +63,26 @@ export class Quad {
 		this.params = params;
 		this.options = {
 			collisions: true,
-			crashSpeed: 4.5,
-			restitution: 0.18,
-			friction: 0.45,
-			maxSpin: 30,               // rad/s de volteo tras un impacto
 			battery: true,
 			...options,
 		};
+
+		// Los cuatro números de la respuesta al choque —cuánto rebota, cuánto
+		// roza, a qué velocidad se rompe y cuánto puede voltear— salen de
+		// `vuela.config.js` vía `quadOptions()`. Aquí no hay valores por
+		// defecto a propósito: un duplicado en código diverge del fichero en
+		// cuanto alguien edita uno de los dos. Y sin ellos la colisión trabaja
+		// con `undefined`, que sale como NaN en la primera pared y deja el dron
+		// atravesando edificios sin un solo mensaje: mejor no construirlo.
+		for ( const key of [ 'crashSpeed', 'restitution', 'friction', 'maxSpin' ] ) {
+
+			if ( ! Number.isFinite( this.options[ key ] ) ) {
+
+				throw new Error( `Quad: falta la opción "${ key }" (viene de quadOptions() en src/config.js).` );
+
+			}
+
+		}
 
 		this.body = new RigidBody( {
 			mass: params.frame.mass,

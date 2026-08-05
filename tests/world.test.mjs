@@ -6,7 +6,7 @@ import { Scene, Vector3 } from 'three';
 import { createDemoWorld } from '../src/demoWorld.js';
 import { buildCollisionGrid } from '../src/voxels.js';
 import { Quad } from '../src/flight/quad.js';
-import { cloneFlight } from '../src/config.js';
+import { cloneFlight, quadOptions } from '../src/config.js';
 
 // Shims mínimos para poder ejecutar el bucle troceado fuera del navegador.
 globalThis.requestAnimationFrame = cb => setImmediate( () => cb( performance.now() ) );
@@ -27,7 +27,9 @@ function makeQuad( tweak = () => {} ) {
 
 	const params = cloneFlight();
 	tweak( params );
-	return new Quad( params, { collisions: true, battery: false, crashSpeed: 4.5 } );
+	// La velocidad de rotura y la respuesta al choque salen del fichero: aquí se
+	// prueba la colisión con los mismos números con los que se vuela.
+	return new Quad( params, quadOptions( { collisions: true, battery: false } ) );
 
 }
 
@@ -176,6 +178,17 @@ console.log( '\n== posarse y quedarse quieto ==' );
 
 console.log( '\n== coste por consulta ==' );
 {
+	// Lo que se mide: el coste medio de una consulta `isSolid` sobre 2 M puntos
+	// dispersos, incluido el fallo de caché (la rejilla no cabe en L2).
+	//
+	// El umbral está a 250 ns y no a 100 por una razón: la medida depende de la
+	// máquina y del momento (aquí sale sobre 40 ns; en la máquina de la revisión
+	// daba entre 94 y 114 ns en reposo), así que un tope de 100 fallaba 2 de
+	// cada 7 ejecuciones sin que nada estuviera roto. Una batería que se pone
+	// roja al azar entrena a ignorar el rojo, y esta batería es lo único que
+	// caza los agujeros de validación del fichero de configuración. Lo que hay
+	// que detectar es una regresión de verdad —volver a un raycast sería dos
+	// órdenes de magnitud más— no el ruido del planificador.
 	const n = 2000000;
 	const t = performance.now();
 	let hits = 0;
@@ -183,7 +196,8 @@ console.log( '\n== coste por consulta ==' );
 		if ( grid.isSolid( ( i % 1200 ) - 600, ( i % 137 ), ( ( i * 7 ) % 1200 ) - 600 ) ) hits ++;
 	}
 	const ns = ( performance.now() - t ) * 1e6 / n;
-	check( 'isSolid por debajo de 100 ns', ns < 100, `${ ns.toFixed( 0 ) } ns (${ hits } impactos)` );
+	check( 'isSolid por debajo de 250 ns por consulta', ns < 250,
+		`${ ns.toFixed( 0 ) } ns de media en 2 M consultas (${ hits } impactos)` );
 }
 
 demo.dispose();

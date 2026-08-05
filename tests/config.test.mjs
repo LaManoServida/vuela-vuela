@@ -3,41 +3,29 @@
  * se cuela un NaN, un rango imposible o un valor fuera de su propio rango, el
  * modelo físico lo propaga y el dron aparece cayendo o girando a mil rpm sin
  * que nada avise. Estas comprobaciones son la red.
+ *
+ * Dos direcciones distintas, y hacen falta las dos:
+ *  - que el fichero que hay ahora sea sano (secciones de arriba);
+ *  - que el contrato de `src/config.js` cace las ediciones a mano que lo
+ *    rompen, porque el flujo documentado es «edítalo y recarga», no «edítalo y
+ *    npm test»: el arranque tiene que fallar solo, diciendo qué clave está mal.
+ *
+ * Los ayudantes que se usan aquí (`findBadNumbers`, `at`, `validate`) se
+ * importan de producción a propósito. Son las piezas de las que depende que el
+ * arranque falle bien; una copia en el test sólo demostraría que la copia
+ * funciona.
  */
 import baseConfig from '../vuela.config.js';
+import {
+	config, cloneFlight, quadOptions, ui,
+	findBadNumbers, at, validate,
+} from '../src/config.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
 	if ( cond ) console.log( `  ok  ${ name } ${ info }` );
 	else { console.log( `FAIL  ${ name } ${ info }` ); fails ++; }
 };
-
-/** Devuelve la ruta con puntos de todo número no finito que encuentre. */
-function findBadNumbers( node, path = '' ) {
-
-	const bad = [];
-
-	for ( const [ key, value ] of Object.entries( node ) ) {
-
-		const here = path ? `${ path }.${ key }` : key;
-
-		if ( typeof value === 'number' ) {
-
-			if ( ! Number.isFinite( value ) ) bad.push( here );
-
-		} else if ( value && typeof value === 'object' ) {
-
-			bad.push( ...findBadNumbers( value, here ) );
-
-		}
-
-	}
-
-	return bad;
-
-}
-
-const at = ( obj, path ) => path.split( '.' ).reduce( ( o, k ) => o?.[ k ], obj );
 
 console.log( '\n== integridad numérica ==' );
 
@@ -53,7 +41,7 @@ for ( const block of [ 'frame', 'motor', 'esc', 'prop', 'battery', 'bf' ] ) {
 }
 
 check( 'bf.pid tiene los tres ejes', baseConfig.flight.bf.pid.length === 3 );
-check( 'el yaw no lleva D', baseConfig.flight.bf.pid[ 2 ].dMax === 0 );
+check( 'el yaw no lleva D', baseConfig.flight.bf.pid[ 2 ].dMax === 0 && baseConfig.flight.bf.pid[ 2 ].dMin === 0 );
 check( 'frame.inertia tiene tres componentes', baseConfig.flight.frame.inertia.length === 3 );
 
 console.log( '\n== curva del variador ==' );
@@ -116,9 +104,62 @@ check(
 	baseConfig.placeId,
 );
 
-console.log( '\n== cargador ==' );
+console.log( '\n== el contrato caza las ediciones a mano ==' );
 
-const { config, cloneFlight, ui } = await import( '../src/config.js' );
+/*
+ * Cada caso es una edición razonable de alguien tocando el fichero a mano. La
+ * comprobación no es «da algún error», es «da un error que nombra la ruta
+ * exacta»: un mensaje que no dice dónde mirar no sirve de nada.
+ */
+const catches = ( name, sabotage, path ) => {
+
+	const copy = structuredClone( baseConfig );
+	sabotage( copy );
+
+	const problems = [
+		...findBadNumbers( copy ).map( p => `${ p }: no es un número finito` ),
+		...validate( copy ).errors,
+	];
+	const hit = problems.find( e => e.includes( path ) );
+
+	check( name, !! hit, hit ? `→ «${ hit }»` : `NO lo caza (${ problems.length } problemas detectados)` );
+
+};
+
+catches( 'borrar la clave radius', c => { delete c.radius; }, 'radius' );
+catches( 'radius como cadena', c => { c.radius = '1100'; }, 'radius' );
+catches( 'mass escrito masa', c => {
+	c.flight.frame.masa = c.flight.frame.mass;
+	delete c.flight.frame.mass;
+}, 'flight.frame.mass' );
+catches( 'inertia con dos componentes', c => {
+	c.flight.frame.inertia = c.flight.frame.inertia.slice( 0, 2 );
+}, 'flight.frame.inertia' );
+catches( 'ui.mass.path apuntando a nada', c => {
+	c.ui.mass.path = 'flight.frame.masa';
+}, 'ui.mass' );
+catches( 'borrar el bloque flight.motor', c => { delete c.flight.motor; }, 'flight.motor' );
+catches( 'voxelSize a cero', c => { c.voxelSize = 0; }, 'voxelSize' );
+catches( 'borrar deadzone', c => { delete c.deadzone; }, 'deadzone' );
+
+// Los otros huecos que el modelo daba por hechos.
+catches( 'borrar el bloque ui', c => { delete c.ui; }, 'ui' );
+catches( 'borrar el bloque places', c => { delete c.places; }, 'places' );
+catches( 'curva del variador con 64 puntos', c => {
+	c.flight.esc.curve = c.flight.esc.curve.slice( 0, 64 );
+}, 'flight.esc.curve' );
+catches( 'bf.pid con dos ejes', c => {
+	c.flight.bf.pid = c.flight.bf.pid.slice( 0, 2 );
+}, 'flight.bf.pid' );
+catches( 'un NaN suelto', c => { c.flight.frame.mass = NaN; }, 'flight.frame.mass' );
+catches( 'un modo de vuelo que no existe', c => { c.flight.bf.mode = 'cinematic'; }, 'flight.bf.mode' );
+
+// Y al revés: el fichero de verdad tiene que pasar el contrato limpio.
+const real = validate( baseConfig );
+check( 'el fichero actual cumple el contrato', real.errors.length === 0, real.errors.join( ' | ' ) );
+check( 'no hay claves que no lea nadie', real.unknown.length === 0, real.unknown.join( ', ' ) );
+
+console.log( '\n== cargador ==' );
 
 check( 'config expone los valores del fichero', config.radius === baseConfig.radius, `${ config.radius }` );
 check( 'ui es un atajo a config.ui', ui === config.ui );
@@ -139,23 +180,52 @@ check( 'cloneFlight arrastra la tune', a.bf.pid.length === 3 );
 check( 'apiKey existe como cadena', typeof config.apiKey === 'string' );
 check( 'la apiKey no está en el fichero', baseConfig.apiKey === undefined );
 
-console.log( '\n== el menú no tiene rangos propios ==' );
+// Los cuatro números de la respuesta al choque llegan al dron desde el fichero
+// y no desde un valor por defecto escondido en `quad.js`.
+const opts = quadOptions();
+check( 'quadOptions trae la respuesta al choque del fichero',
+	opts.crashSpeed === baseConfig.crashSpeed
+	&& opts.restitution === baseConfig.restitution
+	&& opts.friction === baseConfig.friction
+	&& opts.maxSpin === baseConfig.maxSpin,
+	`crash ${ opts.crashSpeed } · rest ${ opts.restitution } · fric ${ opts.friction } · spin ${ opts.maxSpin }` );
+check( 'quadOptions admite sobrescribir lo del entorno de prueba',
+	quadOptions( { battery: false } ).battery === false );
 
-const menuSource = await ( await import( 'node:fs/promises' ) ).readFile(
-	new URL( '../src/menu.js', import.meta.url ), 'utf8' );
+console.log( '\n== ningún número de ajuste escondido en código ==' );
+
+const read = async name => ( await import( 'node:fs/promises' ) ).readFile(
+	new URL( `../src/${ name }`, import.meta.url ), 'utf8' );
+
+const menuSource = await read( 'menu.js' );
 
 // Un `min: 0.2` en el fuente del menú es un número de configuración escondido
-// en código, que es justo lo que este refactor viene a eliminar. La comilla
-// opcional es para que `step: '0.0001'` tampoco se escape por ir en cadena.
-const literals = menuSource.match( /\b(min|max|step)\s*:\s*'?-?[0-9.]+/g ) || [];
+// en código, que es justo lo que este refactor viene a eliminar. Detalles del
+// patrón: la comilla opcional es para que `step: '0.0001'` tampoco se escape
+// por ir en cadena, y el signo admite espacio detrás porque así escribe este
+// repositorio los negativos (`lon: - 73.9855`). Sin eso, `min: - 0.5` pasaba.
+const literals = menuSource.match( /\b(min|max|step)\s*:\s*'?[-+]?\s*[0-9.]+/g ) || [];
 check( 'ningún min/max/step literal en menu.js', literals.length === 0, literals.join( ', ' ) );
 
 // Y al revés: un rango declarado que no use nadie es peso muerto. Con `\b` al
 // final, porque si no `ui.superRate` da un falso "usado" en cuanto aparece
 // `ui.superRateYaw`: la subcadena sin límite de palabra no distingue una cosa
 // de la otra.
+//
+// El guardián no admite excepciones: `ui` es el recorrido de los deslizadores y
+// nada más. Los valores sin control —`voxelSize`, `crashSpeed`, `deadzone`,
+// `mouseSens`, `restitution`, `friction`, `maxSpin`— no tienen entrada aquí; lo
+// que los valida es el contrato de `src/config.js`, que es otra cosa y se
+// comprueba arriba.
 const unused = Object.keys( baseConfig.ui ).filter( name => ! new RegExp( `ui\\.${ name }\\b` ).test( menuSource ) );
 check( 'todos los rangos de ui se usan en el menú', unused.length === 0, unused.join( ', ' ) );
+
+// La escala de la niebla se escribía en dos sitios: si se toca uno, la niebla
+// del deslizador deja de coincidir con la de la carga.
+const worldSource = await read( 'world.js' );
+const mainSource = await read( 'main.js' );
+check( 'la escala de la niebla vive en un solo sitio',
+	! /0\.00012/.test( mainSource ) && ( worldSource.match( /0\.00012/g ) || [] ).length === 1 );
 
 console.log( fails ? `\n${ fails } FALLOS\n` : '\nTODO OK\n' );
 process.exit( fails ? 1 : 0 );
