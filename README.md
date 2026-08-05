@@ -94,19 +94,19 @@ y se avisa por consola, pero no impide arrancar.
 
 ## 3. Controles
 
-**Mando / emisora.** Cualquier emisora por USB o mando de consola aparece como joystick.
-En el menú, *Mando* → *Detectar* en cada eje, mueve el stick en la dirección que te pida y
-queda mapeado con su inversión.
+Se vuela **con mando**, y sólo con mando. Cualquier emisora por USB o mando de consola
+aparece como joystick. En el menú, *Mando* → *Detectar* en cada eje, mueve el stick en la
+dirección que te pida y queda mapeado con su inversión; *Mapeo por defecto* sirve para la
+disposición habitual (ejes 0-3) sin detectar nada.
 
-**Ratón y teclado** (sin mando):
+Sin mando mapeado no se despega. La zona **sí** se carga: si terminas la descarga sin mando,
+te quedas en la pantalla de pausa con el panel de mapeo a mano, sin perder los minutos de
+descarga. Desconectar el mando en vuelo pausa la partida.
+
+Del teclado sólo quedan dos teclas, que son órdenes de juego y no mandos de vuelo:
 
 | | |
 |---|---|
-| Ratón | sticks de roll y pitch. **No se autocentra**, como unos gimbals reales — es lo que hace acro pilotable sin emisora |
-| `W` / `S` | subir y bajar gas (se queda donde lo dejes) |
-| `Shift` | gas al máximo mientras lo mantengas |
-| `Espacio` | corta gas |
-| `A` / `D` | yaw |
 | `R` | reaparecer |
 | `Esc` | pausa (no recarga: la zona sigue en memoria) |
 
@@ -298,7 +298,12 @@ Además cubre: las curvas de rates contra sus valores exactos, el sentido de los
 distintos en cada brazo, modo angle y horizon, airmode, los regímenes de la hélice
 (ascenso, anillo de vórtices, autorrotación, traslación), la batería, el acoplamiento del
 hardware con el vuelo, y estabilidad numérica tras un minuto de pilotaje aleatorio con paso
-de render variable. `tests/world.test.mjs` cubre la voxelización de geometría real, la caída
+de render variable. `tests/input.test.mjs` cubre la regla de entrada entera: sin mando —o con mando sin
+mapear— los ejes llegan a cero y `hasControl` es falso, y con mapeo los ejes pasan por su
+inversión y su banda muerta, con el gas remapeado de −1..1 a 0..1. Comprueba además que no
+ha vuelto la API del ratón.
+
+`tests/world.test.mjs` cubre la voxelización de geometría real, la caída
 libre, el choque contra fachada y posarse sin temblar. Cubre también las dos formas que tiene
 la rejilla de irse de las manos: que un tile cargado pero **no dibujado** —un ancestro de
 miles de kilómetros— no dicte la altura de la rejilla, y que el tope de 64 MB se respete pase
