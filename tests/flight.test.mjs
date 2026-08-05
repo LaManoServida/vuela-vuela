@@ -7,7 +7,7 @@
  * rango, el modelo ha dejado de representar un dron aunque siga volando.
  */
 import { Quad } from '../src/flight/quad.js';
-import { cloneAirframe } from '../src/flight/params.js';
+import { cloneFlight } from '../src/config.js';
 import { Betaflight, QUAD_X, ROLL, PITCH, YAW } from '../src/flight/betaflight.js';
 import { Battery } from '../src/flight/battery.js';
 import { Prop } from '../src/flight/prop.js';
@@ -22,7 +22,7 @@ const between = ( v, lo, hi ) => v >= lo && v <= hi;
 
 function makeQuad( tweak = () => {}, options = {} ) {
 
-	const p = cloneAirframe( 'freestyle5' );
+	const p = cloneFlight();
 	tweak( p );
 	const q = new Quad( p, { collisions: false, battery: false, ...options } );
 	q.respawn();
@@ -252,7 +252,7 @@ console.log( '\n== airmode ==' );
 // ---------------------------------------------------------------------------
 console.log( '\n== hélice: elemento de pala + cantidad de movimiento ==' );
 {
-	const p = cloneAirframe( 'freestyle5' );
+	const p = cloneFlight();
 	const prop = new Prop( p.prop );
 	const settle = ( rpm, axial = 0, lateral = 0 ) => {
 		prop.reset();

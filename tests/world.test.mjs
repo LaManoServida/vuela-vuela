@@ -6,7 +6,7 @@ import { Scene, Vector3 } from 'three';
 import { createDemoWorld } from '../src/demoWorld.js';
 import { buildCollisionGrid } from '../src/voxels.js';
 import { Quad } from '../src/flight/quad.js';
-import { cloneAirframe } from '../src/flight/params.js';
+import { cloneFlight } from '../src/config.js';
 
 // Shims mínimos para poder ejecutar el bucle troceado fuera del navegador.
 globalThis.requestAnimationFrame = cb => setImmediate( () => cb( performance.now() ) );
@@ -25,7 +25,7 @@ const scene = new Scene();
 /** Un quad de 5" con el modelo de vuelo completo, listo para soltarlo. */
 function makeQuad( tweak = () => {} ) {
 
-	const params = cloneAirframe( 'freestyle5' );
+	const params = cloneFlight();
 	tweak( params );
 	return new Quad( params, { collisions: true, battery: false, crashSpeed: 4.5 } );
 

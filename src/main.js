@@ -1,6 +1,6 @@
 import { Raycaster, MathUtils } from 'three';
 
-import { loadConfig, saveConfig } from './config.js';
+import { config } from './config.js';
 import { createRenderer, createScene, createTiles, resize } from './world.js';
 import { preloadRegion, sampleGround } from './preload.js';
 import { buildCollisionGrid } from './voxels.js';
@@ -32,7 +32,6 @@ const dom = {
 	attribution: document.getElementById( 'attribution' ),
 };
 
-const config = loadConfig();
 const input = new InputManager( config );
 const hud = new Hud();
 const raycaster = new Raycaster();
@@ -159,8 +158,6 @@ async function loadAndFly( { demo = false } = {} ) {
 		return;
 
 	}
-
-	saveConfig( config );
 
 	phase = 'loading';
 	dom.menu.hidden = true;
@@ -348,7 +345,6 @@ function pauseFlight() {
 	hud.hide();
 	dom.pause.hidden = false;
 	buildPauseSettings( dom.pauseSettings, config, onLiveSettingChange );
-	saveConfig( config );
 
 }
 
@@ -467,10 +463,9 @@ function estimateText() {
 
 function setupMenu() {
 
-	buildMenu( dom.menuBody, config, {
-		onChange: () => saveConfig( config ),
-		onEstimate: estimateText,
-	} );
+	// No hay `onChange` de persistencia: la configuración vive en
+	// `vuela.config.js` y el menú sólo edita la copia en memoria.
+	buildMenu( dom.menuBody, config, { onEstimate: estimateText } );
 
 	const gamepadHost = document.createElement( 'div' );
 	dom.menuBody.appendChild( gamepadHost );

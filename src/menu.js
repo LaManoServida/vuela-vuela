@@ -1,4 +1,4 @@
-import { PLACES } from './locations.js';
+import { ui } from './config.js';
 import { AXES } from './input.js';
 
 function h( tag, attrs = {}, children = [] ) {
@@ -175,7 +175,7 @@ function maxRate( bf, yaw = false ) {
 
 // ---------------------------------------------------------------------------
 
-export function buildMenu( container, config, { onChange, onEstimate } ) {
+export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
 
 	container.replaceChildren();
 
@@ -201,8 +201,8 @@ export function buildMenu( container, config, { onChange, onEstimate } ) {
 
 	// --- Zona ---
 	const placeGrid = h( 'div', { class: 'places' } );
-	const latInput = h( 'input', { type: 'number', step: '0.0001', value: config.lat } );
-	const lonInput = h( 'input', { type: 'number', step: '0.0001', value: config.lon } );
+	const latInput = h( 'input', { type: 'number', step: ui.lat.step, value: config.lat } );
+	const lonInput = h( 'input', { type: 'number', step: ui.lon.step, value: config.lon } );
 
 	const syncPlaceSelection = () => {
 
@@ -214,7 +214,7 @@ export function buildMenu( container, config, { onChange, onEstimate } ) {
 
 	};
 
-	for ( const place of PLACES ) {
+	for ( const place of config.places ) {
 
 		placeGrid.appendChild( h( 'button', {
 			class: 'place',
