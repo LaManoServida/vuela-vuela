@@ -1411,14 +1411,15 @@ Expected: `TODO OK`.
 
 - [ ] **Step 2: Comparar cifra a cifra con la referencia**
 
-Dos de las líneas que imprimen los tests son medidas de reloj de pared —el coste
-en `ms/s` del modelo y la latencia en `ns` de `isSolid`— y **nunca** salen
-iguales dos ejecuciones seguidas, tenga o nada que ver con el refactor. Hay que
-excluirlas o el `diff` da una falsa alarma en cada pasada:
+Tres de las líneas que imprimen los tests son medidas de reloj de pared —el
+coste en `ms/s` del modelo, el tiempo de construcción de la rejilla de vóxeles y
+la latencia en `ns` de `isSolid`— y **nunca** salen iguales dos ejecuciones
+seguidas, tenga o no que ver con el refactor. Hay que excluirlas o el `diff` da
+una falsa alarma en cada pasada:
 
 ```bash
 npm test > /tmp/final-tests.txt 2>&1
-sin_relojes() { sed -n '/curvas de rates/,$p' "$1" | grep -vE 'ms/s|isSolid por debajo'; }
+sin_relojes() { sed -n '/curvas de rates/,$p' "$1" | grep -vE 'ms/s|isSolid por debajo|tarda menos de'; }
 diff <( sin_relojes /tmp/baseline-tests.txt ) \
      <( sin_relojes /tmp/final-tests.txt ) && echo "IDÉNTICO"
 ```
