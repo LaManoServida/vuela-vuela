@@ -150,8 +150,11 @@ const menuSource = await ( await import( 'node:fs/promises' ) ).readFile(
 const literals = menuSource.match( /\b(min|max|step)\s*:\s*'?-?[0-9.]+/g ) || [];
 check( 'ningún min/max/step literal en menu.js', literals.length === 0, literals.join( ', ' ) );
 
-// Y al revés: un rango declarado que no use nadie es peso muerto.
-const unused = Object.keys( baseConfig.ui ).filter( name => ! menuSource.includes( `ui.${ name }` ) );
+// Y al revés: un rango declarado que no use nadie es peso muerto. Con `\b` al
+// final, porque si no `ui.superRate` da un falso "usado" en cuanto aparece
+// `ui.superRateYaw`: la subcadena sin límite de palabra no distingue una cosa
+// de la otra.
+const unused = Object.keys( baseConfig.ui ).filter( name => ! new RegExp( `ui\\.${ name }\\b` ).test( menuSource ) );
 check( 'todos los rangos de ui se usan en el menú', unused.length === 0, unused.join( ', ' ) );
 
 console.log( fails ? `\n${ fails } FALLOS\n` : '\nTODO OK\n' );
