@@ -116,5 +116,28 @@ check(
 	baseConfig.placeId,
 );
 
+console.log( '\n== cargador ==' );
+
+const { config, cloneFlight, ui } = await import( '../src/config.js' );
+
+check( 'config expone los valores del fichero', config.radius === baseConfig.radius, `${ config.radius }` );
+check( 'ui es un atajo a config.ui', ui === config.ui );
+
+// El cargador clona: tocar `config` no puede contaminar el fichero importado,
+// porque el mismo módulo lo comparten los tests y el juego.
+config.radius = 999;
+check( 'config es una copia, no el objeto del fichero', baseConfig.radius !== 999 );
+config.radius = baseConfig.radius;
+
+const a = cloneFlight();
+const b = cloneFlight();
+a.frame.mass = 12.5;
+check( 'cloneFlight devuelve copias independientes', b.frame.mass !== 12.5, `${ b.frame.mass }` );
+check( 'cloneFlight no toca la config viva', config.flight.frame.mass !== 12.5 );
+check( 'cloneFlight arrastra la tune', a.bf.pid.length === 3 );
+
+check( 'apiKey existe como cadena', typeof config.apiKey === 'string' );
+check( 'la apiKey no está en el fichero', baseConfig.apiKey === undefined );
+
 console.log( fails ? `\n${ fails } FALLOS\n` : '\nTODO OK\n' );
 process.exit( fails ? 1 : 0 );

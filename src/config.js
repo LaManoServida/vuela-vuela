@@ -1,117 +1,116 @@
-import { cloneAirframe } from './flight/params.js';
+/*
+ * Cargador de la configuración.
+ *
+ * Todos los valores viven en `vuela.config.js`, en la raíz. Aquí sólo se
+ * clonan, se validan y se exponen. No hay almacenamiento del navegador ni
+ * mezcla con valores por defecto: si algo no está en el fichero, no existe.
+ *
+ * La validación no es paranoia: el fichero se edita a mano, y un número mal
+ * escrito se propaga a NaN en un par de pasos del modelo físico. Un dron que
+ * aparece cayendo o girando sin control es mucho más difícil de diagnosticar
+ * que un error al arrancar que dice exactamente qué clave está mal.
+ */
+import baseConfig from '../vuela.config.js';
 
-// v2: el modelo de vuelo pasó de "rates + empuje/peso" a una simulación física
-// completa, así que la configuración antigua ya no significa nada.
-const STORAGE_KEY = 'vuela-vuela/config/v2';
+/** Devuelve la ruta con puntos de todo número no finito del objeto. */
+function findBadNumbers( node, path = '' ) {
 
-export const DEFAULTS = {
+	const bad = [];
 
-	// --- Cuenta ---
-	apiKey: import.meta.env?.VITE_GOOGLE_API_KEY || '',
+	for ( const [ key, value ] of Object.entries( node ) ) {
 
-	// --- Zona ---
-	placeId: 'nyc',
-	lat: 40.7580,
-	lon: - 73.9855,
-	radius: 1100,          // m de escenario a máxima calidad
-	quality: 12,           // errorTarget dentro del radio (menor = más detalle)
-	spawnHeight: 45,       // m sobre el suelo
+		const here = path ? `${ path }.${ key }` : key;
 
-	// --- Render ---
-	renderScale: 1.0,      // multiplicador de resolución
-	fov: 120,              // FOV de la cámara FPV (grados)
-	camTilt: 25,           // inclinación de la cámara (grados)
-	unlit: true,           // materiales planos: la textura ya trae luz horneada
-	antialias: true,
-	fogDensity: 0.9,       // 0..2, multiplicador sobre la niebla automática
+		if ( typeof value === 'number' ) {
 
-	// --- Juego ---
-	airframe: 'freestyle5',
-	collisions: true,
-	voxelSize: 2.0,        // m, resolución de la rejilla de colisión
-	crashSpeed: 4.5,       // m/s de impacto que rompe el dron
-	battery: true,
+			if ( ! Number.isFinite( value ) ) bad.push( here );
 
-	// --- Entrada ---
-	inputMode: 'auto',     // 'auto' | 'gamepad' | 'mouse'
-	deadzone: 0.04,
-	gamepadMap: null,      // { roll:{axis,inv}, pitch:{...}, yaw:{...}, throttle:{...} }
-	mouseSens: 0.0028,
+		} else if ( value && typeof value === 'object' ) {
 
-	// --- Modelo de vuelo ---
-	// Célula, motores, hélices, variadores, batería y tune de Betaflight. Todo
-	// en unidades reales; ver src/flight/params.js.
-	flight: cloneAirframe( 'freestyle5' ),
+			bad.push( ...findBadNumbers( value, here ) );
 
-};
+		}
+
+	}
+
+	return bad;
+
+}
+
+const at = ( obj, path ) => path.split( '.' ).reduce( ( o, k ) => o?.[ k ], obj );
+
+function setAt( obj, path, value ) {
+
+	const keys = path.split( '.' );
+	const last = keys.pop();
+	keys.reduce( ( o, k ) => o[ k ], obj )[ last ] = value;
+
+}
 
 /**
- * Mezcla en profundidad lo guardado sobre los valores por defecto.
- *
- * Hace falta para `flight`: si en el futuro se añade un parámetro nuevo, una
- * configuración guardada antes no debe dejarlo sin definir — un `undefined`
- * suelto en el modelo físico se propaga a NaN en un par de pasos.
+ * Recorta los valores que tienen rango declarado en `ui`. Editar el fichero a
+ * mano y pasarse de un extremo no debe romper el simulador en silencio, pero
+ * tampoco conviene que pase inadvertido: se avisa por consola.
  */
-function merge( base, stored ) {
+function clampToRanges( cfg ) {
 
-	if ( ! stored || typeof stored !== 'object' || Array.isArray( stored ) ) {
+	for ( const [ name, range ] of Object.entries( cfg.ui ) ) {
 
-		return stored === undefined ? base : stored;
+		if ( ! range.path ) continue;
 
-	}
+		const value = at( cfg, range.path );
+		if ( typeof value !== 'number' ) continue;
 
-	const out = Array.isArray( base ) ? [ ...base ] : { ...base };
+		const clamped = Math.min( range.max, Math.max( range.min, value ) );
 
-	for ( const [ key, value ] of Object.entries( stored ) ) {
+		if ( clamped !== value ) {
 
-		out[ key ] = ( key in out ) ? merge( out[ key ], value ) : value;
+			console.warn(
+				`[vuela-vuela] ${ range.path } = ${ value } está fuera de `
+				+ `[${ range.min }, ${ range.max }] (ui.${ name }); se usa ${ clamped }.`,
+			);
+			setAt( cfg, range.path, clamped );
 
-	}
-
-	return out;
-
-}
-
-export function loadConfig() {
-
-	let stored = {};
-	try {
-
-		stored = JSON.parse( localStorage.getItem( STORAGE_KEY ) || '{}' );
-
-	} catch ( e ) {
-
-		stored = {};
-
-	}
-
-	const config = merge( DEFAULTS, stored );
-
-	// La clave del .env gana si el usuario no ha escrito una a mano.
-	if ( ! stored.apiKey && DEFAULTS.apiKey ) config.apiKey = DEFAULTS.apiKey;
-
-	return config;
-
-}
-
-export function saveConfig( config ) {
-
-	try {
-
-		localStorage.setItem( STORAGE_KEY, JSON.stringify( config ) );
-
-	} catch ( e ) {
-
-		console.warn( 'No se pudo guardar la configuración', e );
+		}
 
 	}
 
 }
 
-/** Devuelve el modelo de vuelo a los valores de fábrica del aparato elegido. */
-export function resetFlight( config ) {
+function load() {
 
-	config.flight = cloneAirframe( config.airframe );
-	return config.flight;
+	const bad = findBadNumbers( baseConfig );
+
+	if ( bad.length ) {
+
+		throw new Error(
+			`vuela.config.js tiene valores no numéricos en: ${ bad.join( ', ' ) }. `
+			+ 'Revísalos: un NaN aquí se propaga a todo el modelo de vuelo.',
+		);
+
+	}
+
+	// Copia profunda: el menú edita este objeto en caliente y el fichero
+	// importado lo comparten los tests y el propio juego.
+	const cfg = structuredClone( baseConfig );
+
+	clampToRanges( cfg );
+
+	// La credencial no vive en el fichero de configuración, para que ese sí se
+	// pueda versionar. Ver `.env.example`.
+	cfg.apiKey = import.meta.env?.VITE_GOOGLE_API_KEY || '';
+
+	return cfg;
+
+}
+
+export const config = load();
+
+export const ui = config.ui;
+
+/** Copia profunda del aparato, para construir un Quad sin compartir estado. */
+export function cloneFlight() {
+
+	return structuredClone( config.flight );
 
 }
