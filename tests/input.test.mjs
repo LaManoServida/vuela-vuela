@@ -5,7 +5,7 @@
  * se dispare sola por haberse pulsado antes de que arranque el vuelo, y que sí
  * llegue, una sola vez, mientras se vuela. Todo sin abrir un navegador.
  */
-import { InputManager, isCompleteMap, AxisPicker, hasReturned, Calibration } from '../src/input.js';
+import { InputManager, isCompleteMap, AxisPicker, hasReturned, Calibration, mapSnippet, AXES } from '../src/input.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -279,6 +279,24 @@ console.log( '\n== la calibración guiada, los cuatro ejes ==' );
 	check( 'sin mover nada en 5 s, falla', cal.sample( [ 0, 0, 0, - 1 ], 5 ) === 'fallo' );
 	check( 'y dice en qué eje se quedó', cal.failed === 'roll' );
 	check( 'sin inventarse los otros tres', Object.keys( cal.map ).length === 0 );
+}
+
+console.log( '\n== el trozo que se pega en el fichero ==' );
+{
+	// Lo que vale de este trozo es que se pueda pegar dentro de `gamepads` y
+	// vuelva a leerse como el mismo mapeo. Se comprueba evaluándolo, que es
+	// justo lo que hará el fichero de configuración al importarse.
+	const id = "Emisora d'Andoni (Vendor: 1209)";
+	const texto = mapSnippet( id, MAPA );
+	const leido = new Function( `return ({${ texto }})` )();
+
+	check( 'vuelve a leerse como el mismo mapeo',
+		JSON.stringify( leido ) === JSON.stringify( { [ id ]: MAPA } ), texto );
+	check( 'la comilla del nombre no rompe el fichero', Object.keys( leido )[ 0 ] === id );
+	check( 'lleva los cuatro ejes en orden',
+		texto.indexOf( 'roll' ) < texto.indexOf( 'pitch' )
+		&& texto.indexOf( 'pitch' ) < texto.indexOf( 'yaw' )
+		&& texto.indexOf( 'yaw' ) < texto.indexOf( 'throttle' ) );
 }
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );

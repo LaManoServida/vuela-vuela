@@ -19,6 +19,22 @@ export function isCompleteMap( map ) {
 }
 
 /**
+ * El mapeo escrito tal y como va dentro de `gamepads`, en `vuela.config.js`.
+ *
+ * Es la única vía por la que un mapeo llega al fichero: el juego no lo reescribe
+ * nunca, así que el panel enseña esto y se pega a mano. Una vez por mando.
+ */
+export function mapSnippet( id, map ) {
+
+	const clave = `'${ id.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
+	const ejes = AXES.map( ( { id: eje } ) =>
+		`\t\t${ eje }: { axis: ${ map[ eje ].axis }, inv: ${ !! map[ eje ].inv } },` );
+
+	return `\t${ clave }: {\n${ ejes.join( '\n' ) }\n\t},`;
+
+}
+
+/**
  * Entrada del piloto: mando, y sólo mando.
  *
  * Hubo un camino de ratón y teclado con un stick virtual que no se autocentraba;
