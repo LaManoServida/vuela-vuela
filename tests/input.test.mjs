@@ -276,7 +276,27 @@ console.log( '\n== encontrar qué eje se mueve ==' );
 {
 	const picker = new AxisPicker( [ 0, 0, 0, - 1 ] );
 	const got = picker.sample( [ 0, - 0.9, 0, - 1 ], 0.3 );
-	check( 'el signo del valor decide la inversión', got?.axis === 1 && got?.inv === true );
+	check( 'el signo del movimiento decide la inversión', got?.axis === 1 && got?.inv === true );
+}
+{
+	// El gas es el único eje que descansa en un extremo, y por eso el único
+	// donde el signo del VALOR no dice nada: subiéndolo desde -1 el paso se
+	// acepta al pasar de 0.5 de desviación, o sea sobre -0.5 —un número
+	// negativo después de un movimiento hacia arriba—. Mirar el valor lo daba
+	// por invertido siempre, y con eso el gas queda a fondo con el stick abajo.
+	const picker = new AxisPicker( [ 0, 0, 0, - 1 ] );
+	const got = picker.sample( [ 0, 0, 0, - 0.4 ], 0.3 );
+
+	check( 'el gas subiendo desde abajo se detecta', got?.axis === 3, JSON.stringify( got ) );
+	check( 'y no se da por invertido', got?.inv === false, JSON.stringify( got ) );
+}
+{
+	// Y al revés: una emisora que dé +1 abajo y -1 arriba sí está invertida.
+	const picker = new AxisPicker( [ 0, 0, 0, 1 ] );
+	const got = picker.sample( [ 0, 0, 0, 0.4 ], 0.3 );
+
+	check( 'el gas de una emisora al revés sí queda invertido',
+		got?.axis === 3 && got?.inv === true, JSON.stringify( got ) );
 }
 {
 	// Es lo que impide que timón y gas acaben leyendo el mismo stick.

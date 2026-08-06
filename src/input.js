@@ -331,9 +331,18 @@ export class AxisPicker {
 
 	}
 
+	/**
+	 * La inversión sale del sentido del MOVIMIENTO, no del signo en que cayó el
+	 * valor. Con los sticks que se autocentran da igual —parten de 0, así que
+	 * los dos signos coinciden—, pero el gas descansa en un extremo: subiéndolo
+	 * desde −1 el paso se acepta al pasar de 0.5 de desviación, o sea sobre
+	 * −0.5, un número negativo tras un movimiento hacia arriba. Mirando el valor
+	 * el gas salía invertido siempre, y con eso se despegaba a fondo con el
+	 * stick abajo.
+	 */
 	_picked() {
 
-		return { axis: this.bestAxis, inv: this.bestValue < 0 };
+		return { axis: this.bestAxis, inv: this.bestValue < ( this.base[ this.bestAxis ] ?? 0 ) };
 
 	}
 
