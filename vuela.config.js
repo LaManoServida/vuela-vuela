@@ -42,8 +42,8 @@ export default {
 	// =====================================================================
 
 	renderScale: 1.0,          // multiplicador de resolución; bájalo antes que la calidad
-	fov: 120,                  // grados, cámara FPV
-	camTilt: 25,               // grados de inclinación de la cámara
+	fov: 100,                  // grados, cámara FPV
+	camTilt: 20,               // grados de inclinación de la cámara
 	unlit: true,               // materiales planos: la textura fotogramétrica ya trae la luz horneada
 	antialias: true,
 	fogDensity: 0.9,           // multiplicador sobre la niebla automática
