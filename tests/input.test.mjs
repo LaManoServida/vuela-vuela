@@ -5,7 +5,7 @@
  * se dispare sola por haberse pulsado antes de que arranque el vuelo, y que sí
  * llegue, una sola vez, mientras se vuela. Todo sin abrir un navegador.
  */
-import { InputManager, isCompleteMap, AxisPicker, hasReturned, Calibration, mapSnippet, AXES } from '../src/input.js';
+import { InputManager, isCompleteMap, AxisPicker, hasReturned, Calibration, mapSnippet } from '../src/input.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -297,6 +297,22 @@ console.log( '\n== el trozo que se pega en el fichero ==' );
 		texto.indexOf( 'roll' ) < texto.indexOf( 'pitch' )
 		&& texto.indexOf( 'pitch' ) < texto.indexOf( 'yaw' )
 		&& texto.indexOf( 'yaw' ) < texto.indexOf( 'throttle' ) );
+
+	// Backslash escaping coverage
+	{
+		const id = "Mando\\Test";
+		const texto = mapSnippet( id, MAPA );
+		const leido = new Function( `return ({${ texto }})` )();
+		check( 'escapa la barra invertida',
+			JSON.stringify( leido ) === JSON.stringify( { [ id ]: MAPA } ), texto );
+	}
+	{
+		const id = "Mando\\'Test";
+		const texto = mapSnippet( id, MAPA );
+		const leido = new Function( `return ({${ texto }})` )();
+		check( 'escapa barra invertida y comilla',
+			JSON.stringify( leido ) === JSON.stringify( { [ id ]: MAPA } ), texto );
+	}
 }
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
