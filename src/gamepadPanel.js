@@ -10,10 +10,19 @@ import { h } from './menu.js';
  * fichero las alimenta con las muestras del mando y pinta lo que digan.
  */
 
-/** Hacia dónde hay que mover cada stick para que se le vea. */
+/*
+ * Hacia dónde hay que mover cada stick para que se le vea.
+ *
+ * El sentido que se pide aquí es el que el modelo llama positivo —`+pitch` es
+ * morro arriba, ver `flight/betaflight.js`—, porque la calibración deduce la
+ * inversión del signo del valor en ese momento: lo que muevas ahora es lo que
+ * luego hará eso. Por eso el elevador se pide **hacia atrás** y no hacia
+ * arriba: en un stick, morro arriba es tirar. Decir «arriba» aquí era
+ * contradecirse, y dejaba el eje invertido a quien hiciera caso al literal.
+ */
 const DIRS = {
 	roll: 'a la DERECHA',
-	pitch: 'hacia ARRIBA (morro arriba)',
+	pitch: 'hacia ATRÁS, tirando (morro arriba)',
 	yaw: 'a la DERECHA',
 	throttle: 'a TOPE',
 };
