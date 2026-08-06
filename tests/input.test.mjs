@@ -88,8 +88,11 @@ console.log( '\n== cambiar de mando cambia de mapeo ==' );
 	check( 'al enchufar otro, el mapeo anterior deja de valer', ! input.config.gamepadMap );
 
 	// Y desenchufar y volver a enchufar el MISMO no puede tirar una calibración
-	// recién hecha y todavía sin pegar en el fichero.
+	// recién hecha y todavía sin pegar en el fichero. Con el frame sin ningún
+	// mando por medio, que es lo que produce un tirón del cable de verdad.
 	input.config.gamepadMap = structuredClone( MAPA );
+	setPads( [] );
+	input.update();
 	setPads( [ fakePad( [ 0, 0, 0, - 1 ], 'Emisora rarísima' ) ] );
 	input.update();
 	check( 'reenchufar el mismo mando respeta lo calibrado', isCompleteMap( input.config.gamepadMap ) );
@@ -168,6 +171,42 @@ const fakeWindow = () => {
 };
 
 const press = ( handlers, code ) => handlers.keydown.forEach( fn => fn( { code, repeat: false } ) );
+
+console.log( '\n== el mando conocido queda mapeado por el barrido de attach() ==' );
+{
+	// Cero clics: el mando ya estaba visible al arrancar. Los demás casos de
+	// mapeo pasan por `update()`, que sólo corre dentro del bucle de vuelo; en
+	// el menú y en la pausa no hay bucle, y este barrido es todo lo que hay.
+	setPads( [ fakePad( [ 0.6, 0.5, 0.02, - 1 ] ) ] );
+	fakeWindow();
+	const input = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': MAPA } } );
+	input.attach();
+
+	check( 'attach() por sí solo aplica el mapeo del fichero', isCompleteMap( input.config.gamepadMap ) === true );
+	check( 'y hay control sin un solo update()', input.hasControl === true );
+	check( 'es el mapeo de ese mando', input.config.gamepadMap?.throttle.axis === 3 );
+}
+
+console.log( '\n== y si aparece después, lo mapea gamepadconnected ==' );
+{
+	// El navegador no enseña el mando hasta que lo tocas, así que lo normal es
+	// que en `attach()` no haya nada y el mapeo llegue por el evento.
+	setPads( [] );
+	const handlers = fakeWindow();
+	const input = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': MAPA } } );
+	input.attach();
+
+	check( 'sin mando visible, attach() no inventa nada', isCompleteMap( input.config.gamepadMap ) === false );
+
+	setPads( [ fakePad( [ 0.6, 0.5, 0.02, - 1 ] ) ] );
+	handlers.gamepadconnected.forEach( fn => fn( {} ) );
+
+	check( 'el evento lo mapea en cuanto aparece', isCompleteMap( input.config.gamepadMap ) === true );
+	check( 'y ya hay control, sin update()', input.hasControl === true );
+
+	const c = input.update();
+	check( 'los ejes llegan ya mapeados', c.roll > 0 && c.throttle === 1, `roll=${ c.roll.toFixed( 2 ) } gas=${ c.throttle }` );
+}
 
 console.log( '\n== las teclas de antes de volar no se disparan solas en el primer frame ==' );
 {
