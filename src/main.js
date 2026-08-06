@@ -8,7 +8,8 @@ import { createDemoWorld } from './demoWorld.js';
 import { Quad } from './flight/quad.js';
 import { InputManager } from './input.js';
 import { Hud } from './hud.js';
-import { buildMenu, buildGamepadPanel, buildPauseSettings } from './menu.js';
+import { buildMenu, buildPauseSettings } from './menu.js';
+import { buildGamepadPanel } from './gamepadPanel.js';
 
 const dom = {
 	canvas: document.getElementById( 'viewport' ),

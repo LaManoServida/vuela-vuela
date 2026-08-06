@@ -236,11 +236,12 @@ console.log( '\n== el vuelo por ratón y teclado no vuelve ==' );
 // —un `readVirtualStick()` nuevo en `input.js` seguiría en verde—. Es una
 // alarma contra que vuelva el camino conocido, no una prueba general.
 const inputSource = await read( 'input.js' );
+const panelSource = await read( 'gamepadPanel.js' );
 const configSource = await read( 'config.js' );
 const fileSource = await ( await import( 'node:fs/promises' ) ).readFile(
 	new URL( '../vuela.config.js', import.meta.url ), 'utf8' );
 
-const todo = inputSource + mainSource + menuSource + configSource + fileSource;
+const todo = inputSource + mainSource + menuSource + panelSource + configSource + fileSource;
 
 for ( const rastro of [ 'mouseSens', 'inputMode', 'readMouseKeyboard', 'requestPointerLock', 'pointerlockchange' ] ) {
 
