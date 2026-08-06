@@ -189,20 +189,6 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 	margin: 3px 0;
 }
 
-#crosshair {
-	position: absolute;
-	left: 50%;
-	top: 50%;
-	transform: translate(-50%, -50%);
-	opacity: 0.55;
-}
-#crosshair path, #crosshair circle {
-	stroke: #f4f7fb;
-	stroke-width: 2.5;
-	fill: none;
-	stroke-linecap: round;
-}
-
 /* Tabla de PID: tres filas de cuatro celdas, como el configurador. */
 .pid-table { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
 .pid-row { display: flex; align-items: center; gap: 8px; }
