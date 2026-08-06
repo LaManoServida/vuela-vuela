@@ -5,7 +5,7 @@
  * se dispare sola por haberse pulsado antes de que arranque el vuelo, y que sí
  * llegue, una sola vez, mientras se vuela. Todo sin abrir un navegador.
  */
-import { InputManager, isCompleteMap, usedAxes, AxisPicker, hasReturned, Calibration, mapSnippet } from '../src/input.js';
+import { InputManager, isCompleteMap, usedAxes, sameMap, AxisPicker, hasReturned, Calibration, mapSnippet } from '../src/input.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -128,6 +128,27 @@ console.log( '\n== qué ejes ya tiene cada fila, para que el picker de otra no l
 
 	check( 'el eje de la propia fila excluida no aparece en el resultado',
 		! usedAxes( MAPA, 'roll' ).includes( MAPA.roll.axis ) );
+}
+
+console.log( '\n== ¿es el mismo mapeo que el del fichero? ==' );
+{
+	// De esto depende que el panel enseñe el cuadro de pegar y que diga si lo
+	// que hay puesto viene del fichero o de una calibración de esta sesión.
+	const igual = structuredClone( MAPA );
+	check( 'dos mapeos con los mismos ejes son el mismo', sameMap( MAPA, igual ) === true );
+
+	const otroEje = structuredClone( MAPA );
+	otroEje.yaw.axis = 4;
+	check( 'un eje distinto ya no', sameMap( MAPA, otroEje ) === false );
+
+	const otraInv = structuredClone( MAPA );
+	otraInv.pitch.inv = false;
+	check( 'una inversión distinta tampoco', sameMap( MAPA, otraInv ) === false );
+
+	// El fichero no tiene entrada para este mando: hay algo que pegar.
+	check( 'un mapeo contra nada no coincide', sameMap( MAPA, undefined ) === false );
+	check( 'ni nada contra un mapeo', sameMap( undefined, MAPA ) === false );
+	check( 'dos ausencias sí son lo mismo', sameMap( null, null ) === true );
 }
 
 console.log( '\n== con mando conocido llegan los ejes, sin tocar nada ==' );

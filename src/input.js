@@ -36,6 +36,22 @@ export function usedAxes( map, exceptId ) {
 }
 
 /**
+ * ¿Es el mismo mapeo? Se compara eje por eje según `AXES`, no con un
+ * `JSON.stringify` de los objetos enteros: el orden en que se rellenan las
+ * claves depende de qué fila se detectó primero, y eso no puede hacer que dos
+ * mapeos con los mismos ejes parezcan distintos.
+ *
+ * Es lo que separa «esto ya está en el fichero» de «esto hay que pegarlo»: de
+ * ella salen el estado que enseña el panel y si aparece el cuadro de pegar.
+ */
+export function sameMap( a, b ) {
+
+	if ( ! a || ! b ) return a === b;
+	return AXES.every( ( { id } ) => a[ id ]?.axis === b[ id ]?.axis && !! a[ id ]?.inv === !! b[ id ]?.inv );
+
+}
+
+/**
  * El mapeo escrito tal y como va dentro de `gamepads`, en `vuela.config.js`.
  *
  * Es la única vía por la que un mapeo llega al fichero: el juego no lo reescribe

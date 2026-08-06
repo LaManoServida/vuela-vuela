@@ -1,4 +1,4 @@
-import { AXES, AxisPicker, Calibration, isCompleteMap, mapSnippet, usedAxes } from './input.js';
+import { AXES, AxisPicker, Calibration, isCompleteMap, mapSnippet, sameMap, usedAxes } from './input.js';
 import { h } from './menu.js';
 
 /*
@@ -17,19 +17,6 @@ const DIRS = {
 	yaw: 'a la DERECHA',
 	throttle: 'a TOPE',
 };
-
-/**
- * ¿Es el mismo mapeo? Se compara eje por eje según `AXES`, no con un
- * `JSON.stringify` de los objetos enteros: el orden en que se rellenan las
- * claves depende de qué fila se detectó primero, y eso no puede hacer que dos
- * mapeos con los mismos ejes parezcan distintos.
- */
-function sameMap( a, b ) {
-
-	if ( ! a || ! b ) return a === b;
-	return AXES.every( ( { id } ) => a[ id ]?.axis === b[ id ]?.axis && !! a[ id ]?.inv === !! b[ id ]?.inv );
-
-}
 
 export function buildGamepadPanel( container, config, input, { onChange } = {} ) {
 
