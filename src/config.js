@@ -116,6 +116,7 @@ export const SCHEMA = block( {
 	restitution: num( 0, 1 ),          // coeficiente de restitución, por definición
 	friction: num( 0 ),
 	maxSpin: num( 0 ),
+	respawnDelay: num( 0 ),
 	battery: bool(),
 
 	// --- Entrada ---

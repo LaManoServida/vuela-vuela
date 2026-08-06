@@ -340,9 +340,9 @@ function startFlying() {
 	hud.show();
 	hud.skipFrames( 12 );
 
-	// El menú o la pausa pueden dejar un `Esc` o una `R` pendientes —tocados
-	// por reflejo, por ejemplo al intentar despausar—; sin vaciarlos se
-	// disparan solos en el primer frame de vuelo. Ver `InputManager.resetKeys`.
+	// El menú o la pausa pueden dejar un `Esc` pendiente —tocado por reflejo,
+	// por ejemplo al intentar despausar—; sin vaciarlo se dispara solo en el
+	// primer frame de vuelo. Ver `InputManager.resetKeys`.
 	input.resetKeys();
 
 	lastTime = performance.now();
@@ -422,7 +422,10 @@ function frame( now ) {
 	const { renderer, scene, camera, sky, tiles } = world;
 	const controls = input.update();
 
-	if ( input.consumeKey( 'KeyR' ) ) {
+	// Reaparecer no se pide: el choque desarma los motores, se ve el volteo
+	// durante `respawnDelay` segundos y el dron vuelve solo al punto de
+	// aparición. El reloj lo lleva el propio dron, en tiempo de simulación.
+	if ( drone.crashed && drone.crashTime >= config.respawnDelay ) {
 
 		drone.respawn();
 		hud.skipFrames( 4 );

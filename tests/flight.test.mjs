@@ -391,6 +391,31 @@ console.log( '\n== el hardware manda de verdad ==' );
 }
 
 // ---------------------------------------------------------------------------
+console.log( '\n== el reloj del choque ==' );
+{
+	// `main.js` no lleva cronómetro propio: mira `crashTime` para saber cuándo
+	// reaparecer. El contrato es que sólo corra con el dron roto, que vaya en
+	// tiempo de simulación —no de reloj de pared, así el retardo es el mismo
+	// aunque se hundan los fps— y que reaparecer lo devuelva a cero.
+	const q = makeQuad();
+	fly( q, { throttle: q.hoverThrottle }, 1 );
+
+	check( 'volando no corre', q.crashTime === 0 );
+	const volado = q.flightTime;
+
+	q.crash( 9 );
+	fly( q, { throttle: 1 }, 1.5 );
+
+	check( 'roto cuenta el tiempo simulado', Math.abs( q.crashTime - 1.5 ) < 1e-6,
+		`${ q.crashTime.toFixed( 3 ) } s` );
+	check( 'y el cronómetro de vuelo se para', Math.abs( q.flightTime - volado ) < 1e-9,
+		`${ q.flightTime.toFixed( 3 ) } s` );
+
+	q.respawn();
+	check( 'reaparecer lo devuelve a cero', q.crashTime === 0 && q.crashed === false );
+}
+
+// ---------------------------------------------------------------------------
 console.log( '\n== estabilidad numérica ==' );
 {
 	// Un minuto de pilotaje agresivo con paso de render variable.

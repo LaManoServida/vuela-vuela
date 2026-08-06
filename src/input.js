@@ -15,7 +15,7 @@ export const AXES = [
  * mantener el repuesto obligaba a duplicarlo todo —modo de entrada, sensibilidad
  * del ratón, captura del puntero— para una forma de volar que no es la de verdad.
  *
- * Las teclas que quedan (`Esc`, `R`) son órdenes de juego, no mandos de vuelo.
+ * La única tecla que queda (`Esc`) es una orden de juego, no un mando de vuelo.
  */
 export class InputManager {
 
@@ -75,9 +75,9 @@ export class InputManager {
 	/**
 	 * Vacía las teclas mantenidas, las sueltas y los flancos pendientes.
 	 * `_pending` sólo se vacía dentro de `update()`, y `update()` sólo corre
-	 * dentro del bucle de vuelo: sin esto, un `Esc` o una `R` tocados en el
-	 * menú o en la pausa —antes de que el bucle arranque— se disparan solos
-	 * en cuanto corre el primer `update()` del vuelo.
+	 * dentro del bucle de vuelo: sin esto, un `Esc` tocado en el menú o en la
+	 * pausa —antes de que el bucle arranque— se dispara solo en cuanto corre
+	 * el primer `update()` del vuelo.
 	 */
 	resetKeys() {
 

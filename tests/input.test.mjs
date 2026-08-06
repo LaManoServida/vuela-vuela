@@ -1,10 +1,9 @@
 /*
  * La entrada tiene un solo camino: el mando. Aquí se comprueban las dos mitades
  * de esa regla —sin mando no hay mandos, con mando y mapeo los ejes llegan con
- * su inversión y su banda muerta— y el rastro de teclado que sobrevive (`Esc`,
- * `R`): que no se disparen solas por haberse pulsado antes de que arranque el
- * vuelo, y que sí lleguen, una vez cada una, mientras se vuela. Todo sin abrir
- * un navegador.
+ * su inversión y su banda muerta— y la única tecla que sobrevive (`Esc`): que no
+ * se dispare sola por haberse pulsado antes de que arranque el vuelo, y que sí
+ * llegue, una sola vez, mientras se vuela. Todo sin abrir un navegador.
  */
 import { InputManager } from '../src/input.js';
 
@@ -105,13 +104,11 @@ console.log( '\n== las teclas de antes de volar no se disparan solas en el prime
 	input.attach();
 
 	press( handlers, 'Escape' );
-	press( handlers, 'KeyR' );
 
 	input.resetKeys();
 	input.update();
 
 	check( 'Escape no llega solo por haberse pulsado antes de volar', input.consumeKey( 'Escape' ) === false );
-	check( 'KeyR no llega solo por haberse pulsado antes de volar', input.consumeKey( 'KeyR' ) === false );
 }
 
 console.log( '\n== una tecla pulsada durante el vuelo llega una sola vez ==' );
@@ -122,11 +119,11 @@ console.log( '\n== una tecla pulsada durante el vuelo llega una sola vez ==' );
 	input.attach();
 	input.update(); // primer frame, ya sin pulsaciones pendientes
 
-	press( handlers, 'KeyR' );
+	press( handlers, 'Escape' );
 	input.update();
 
-	check( 'consumeKey ve la pulsación', input.consumeKey( 'KeyR' ) === true );
-	check( 'consumeKey no la ve una segunda vez', input.consumeKey( 'KeyR' ) === false );
+	check( 'consumeKey ve la pulsación', input.consumeKey( 'Escape' ) === true );
+	check( 'consumeKey no la ve una segunda vez', input.consumeKey( 'Escape' ) === false );
 }
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );

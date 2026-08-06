@@ -56,11 +56,12 @@ export default {
 	voxelSize: 2.0,            // m, resolución de la rejilla de colisión
 	crashSpeed: 4.5,           // m/s de impacto que rompe el dron
 
-	// Qué pasa al chocar. Ninguno de los cuatro tiene deslizador en el menú: se
+	// Qué pasa al chocar. Ninguno de los cinco tiene deslizador en el menú: se
 	// tocan aquí, con el juego cerrado.
 	restitution: 0.18,         // 0 = se queda pegado a la pared, 1 = rebota como una pelota
 	friction: 0.45,            // rozamiento contra la superficie: 0 = patina, 1 = se clava
 	maxSpin: 30,               // rad/s, tope del volteo que mete un impacto descentrado
+	respawnDelay: 1.5,         // s desde el impacto hasta que reaparece solo (0 = al instante)
 
 	battery: true,
 

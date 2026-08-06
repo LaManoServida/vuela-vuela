@@ -35,7 +35,8 @@ no impide arrancar.
 - **Colisiones** — construye la rejilla de vóxeles (unos segundos más de carga). Lo que
   pasa al chocar no tiene deslizador y se toca en `vuela.config.js`: `crashSpeed` (a qué
   velocidad de impacto se rompe el dron), `restitution` (cuánto rebota), `friction`
-  (cuánto patina contra la fachada) y `maxSpin` (cuánto puede voltear un golpe descentrado).
+  (cuánto patina contra la fachada), `maxSpin` (cuánto puede voltear un golpe descentrado)
+  y `respawnDelay` (segundos de volteo antes de reaparecer solo; 0 reaparece al instante).
 
 El coste de carga crece con el **cuadrado** del radio y con el **cuadrado** del inverso de
 la calidad. Duplicar el radio es 4× de trabajo. El menú te da una estimación en vivo. Todos

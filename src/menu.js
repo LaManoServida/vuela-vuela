@@ -699,7 +699,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		] ),
 		h( 'p', {
 			class: 'note',
-			html: 'Se vuela con mando: los cuatro ejes tienen que estar mapeados. Del teclado sólo quedan <kbd>R</kbd> para reaparecer y <kbd>Esc</kbd> para pausar.',
+			html: 'Se vuela con mando: los cuatro ejes tienen que estar mapeados. Del teclado sólo queda <kbd>Esc</kbd> para pausar; tras un choque se reaparece solo.',
 		} ),
 	] ) );
 

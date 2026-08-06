@@ -160,6 +160,7 @@ export class Quad {
 		this.crashed = false;
 		this.crashSpeed = 0;
 		this.flightTime = 0;
+		this.crashTime = 0;
 		this.distanceFlown = 0;
 		this.topSpeed = 0;
 		this.totalThrust = 0;
@@ -344,7 +345,12 @@ export class Quad {
 
 		body.clearAccumulators();
 
-		if ( ! this.crashed ) this.flightTime += dt;
+		// Los dos cronómetros del aparato, y sólo uno corre a la vez. `crashTime`
+		// es tiempo de simulación, no de reloj de pared: quien lo mira para
+		// decidir cuándo reaparecer —`main.js`— espera lo mismo aunque los fps
+		// se hundan, y no cuenta nada mientras el vuelo está en pausa.
+		if ( this.crashed ) this.crashTime += dt;
+		else this.flightTime += dt;
 
 		// --- Giróscopo: velocidad angular del cuerpo en el convenio del FC ---
 		_gyro[ ROLL ] = - body.omega.z * RAD2DEG;
@@ -681,6 +687,7 @@ export class Quad {
 
 		this.crashed = true;
 		this.crashSpeed = impact;
+		this.crashTime = 0;
 
 	}
 
