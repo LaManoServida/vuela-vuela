@@ -19,6 +19,23 @@ export function isCompleteMap( map ) {
 }
 
 /**
+ * Los ejes físicos que ya usan las otras filas del mapeo — la fila
+ * `exceptId` queda fuera. Es la mitad de la regla "dos filas no pueden
+ * compartir eje" que vive en el panel: la otra mitad, la exclusión dentro de
+ * la calibración guiada, ya la cubre `Calibration.used` más abajo.
+ */
+export function usedAxes( map, exceptId ) {
+
+	if ( ! map ) return [];
+
+	return AXES
+		.filter( ( { id } ) => id !== exceptId )
+		.map( ( { id } ) => map[ id ]?.axis )
+		.filter( axis => axis !== undefined );
+
+}
+
+/**
  * El mapeo escrito tal y como va dentro de `gamepads`, en `vuela.config.js`.
  *
  * Es la única vía por la que un mapeo llega al fichero: el juego no lo reescribe

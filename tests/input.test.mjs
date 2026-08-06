@@ -5,7 +5,7 @@
  * se dispare sola por haberse pulsado antes de que arranque el vuelo, y que sí
  * llegue, una sola vez, mientras se vuela. Todo sin abrir un navegador.
  */
-import { InputManager, isCompleteMap, AxisPicker, hasReturned, Calibration, mapSnippet } from '../src/input.js';
+import { InputManager, isCompleteMap, usedAxes, AxisPicker, hasReturned, Calibration, mapSnippet } from '../src/input.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -109,6 +109,22 @@ console.log( '\n== un mapeo a medias no vuela ==' );
 	const input = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': aMedias } } );
 	input.update();
 	check( 'no hay control con el gas sin mapear', input.hasControl === false );
+}
+
+console.log( '\n== qué ejes ya tiene cada fila, para que el picker de otra no los pise ==' );
+{
+	check( 'mapa completo salvo el eje que se vuelve a detectar',
+		JSON.stringify( usedAxes( MAPA, 'roll' ).sort() ) === JSON.stringify( [ 1, 2, 3 ] ) );
+
+	const parcial = { roll: { axis: 0, inv: false }, throttle: { axis: 3, inv: true } };
+	check( 'mapa parcial: sólo los ejes que de verdad están asignados',
+		JSON.stringify( usedAxes( parcial, 'roll' ) ) === JSON.stringify( [ 3 ] ) );
+
+	check( 'sin mapa no hay nada que excluir', usedAxes( null, 'roll' ).length === 0 );
+	check( 'mapa undefined tampoco', usedAxes( undefined, 'roll' ).length === 0 );
+
+	check( 'el eje de la propia fila excluida no aparece en el resultado',
+		! usedAxes( MAPA, 'roll' ).includes( MAPA.roll.axis ) );
 }
 
 console.log( '\n== con mando conocido llegan los ejes, sin tocar nada ==' );

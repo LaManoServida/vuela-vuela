@@ -1,4 +1,4 @@
-import { AXES, AxisPicker, Calibration, isCompleteMap, mapSnippet } from './input.js';
+import { AXES, AxisPicker, Calibration, isCompleteMap, mapSnippet, usedAxes } from './input.js';
 import { h } from './menu.js';
 
 /*
@@ -18,6 +18,19 @@ const DIRS = {
 	throttle: 'a TOPE',
 };
 
+/**
+ * ¿Es el mismo mapeo? Se compara eje por eje según `AXES`, no con un
+ * `JSON.stringify` de los objetos enteros: el orden en que se rellenan las
+ * claves depende de qué fila se detectó primero, y eso no puede hacer que dos
+ * mapeos con los mismos ejes parezcan distintos.
+ */
+function sameMap( a, b ) {
+
+	if ( ! a || ! b ) return a === b;
+	return AXES.every( ( { id } ) => a[ id ]?.axis === b[ id ]?.axis && !! a[ id ]?.inv === !! b[ id ]?.inv );
+
+}
+
 export function buildGamepadPanel( container, config, input, { onChange } = {} ) {
 
 	const rows = [];
@@ -25,7 +38,10 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 	const hint = h( 'p', { class: 'note' } );
 	const list = h( 'div', { class: 'axes' } );
 
-	// Una detección suelta ({ axis, picker, t0 }) o la guiada de los cuatro.
+	// Una detección suelta ({ axis, picker, t0, padId }) o la guiada de los
+	// cuatro (una `Calibration` con un `padId` añadido). El `padId` es de qué
+	// mando es la foto de referencia del picker, para poder soltarla si el
+	// mando cambia a media detección.
 	let single = null;
 	let guided = null;
 
@@ -77,7 +93,23 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 			onclick: () => {
 
 				snippet.select();
-				navigator.clipboard?.writeText( snippet.value ).catch( () => {} );
+
+				// Sobre http:// a una IP de LAN —una forma normal de llegar al Vite
+				// de desarrollo desde otro aparato— `navigator.clipboard` no
+				// existe. El texto ya queda seleccionado, así que Ctrl+C funciona
+				// aunque el botón no pueda.
+				if ( ! navigator.clipboard ) {
+
+					hint.textContent = 'Sin acceso al portapapeles aquí (¿http sin TLS?). El texto ya está seleccionado: Ctrl+C.';
+					return;
+
+				}
+
+				navigator.clipboard.writeText( snippet.value ).catch( () => {
+
+					hint.textContent = 'No se pudo copiar. El texto ya está seleccionado: Ctrl+C.';
+
+				} );
 
 			},
 		} ),
@@ -93,10 +125,18 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 	function refreshSnippet() {
 
 		const pad = input.getGamepad();
-		const listo = !! pad && isCompleteMap( config.gamepadMap );
+		const guardado = pad && config.gamepads?.[ pad.id ];
 
-		snippetBox.hidden = ! listo;
-		if ( listo ) snippet.value = mapSnippet( pad.id, config.gamepadMap );
+		// El cuadro se enseña exactamente cuando hay algo que pegar: el mapeo
+		// activo está completo y además es distinto del que el fichero ya
+		// guarda para este mando. Con un mando desconocido `guardado` es
+		// undefined y cualquier mapeo completo cuenta como «distinto»; con uno
+		// conocido, sólo cuenta si se ha recalibrado a otra cosa — recalibrar
+		// un mando que SÍ está en el fichero también debe volver a enseñarlo.
+		const hayAlgoQuePegar = !! pad && isCompleteMap( config.gamepadMap ) && ! sameMap( config.gamepadMap, guardado );
+
+		snippetBox.hidden = ! hayAlgoQuePegar;
+		if ( hayAlgoQuePegar ) snippet.value = mapSnippet( pad.id, config.gamepadMap );
 
 	}
 
@@ -107,14 +147,11 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 		guided = null;
 
-		// Los ejes de las otras filas quedan fuera: dos mandos no pueden leer el
-		// mismo eje físico.
-		const exclude = AXES
-			.filter( a => a.id !== axis.id )
-			.map( a => config.gamepadMap?.[ a.id ]?.axis )
-			.filter( a => a !== undefined );
+		// Los ejes de las otras filas quedan fuera: dos filas no pueden leer el
+		// mismo eje físico. `usedAxes` vive en input.js y está probada allí.
+		const exclude = usedAxes( config.gamepadMap, axis.id );
 
-		single = { axis, picker: new AxisPicker( pad.axes, { exclude } ), t0: performance.now() / 1000 };
+		single = { axis, picker: new AxisPicker( pad.axes, { exclude } ), t0: performance.now() / 1000, padId: pad.id };
 		hint.textContent = `${ axis.label }: mueve ${ DIRS[ axis.id ] }…`;
 
 	}
@@ -127,6 +164,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		single = null;
 		guided = new Calibration();
 		guided.begin( pad.axes, performance.now() / 1000 );
+		guided.padId = pad.id;
 
 		// Se calibra desde cero: nada heredado que luego no sepas de dónde salió.
 		config.gamepadMap = null;
@@ -152,10 +190,31 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 				row.tag.textContent = '—';
 				row.bar.style.left = '50%';
+				row.invert.checked = false;
 
 			}
 
 			return;
+
+		}
+
+		// Con dos mandos a la vez, el navegador no deja un frame sin mando entre
+		// desenchufar uno y que el otro tome su sitio: el freno de arriba no
+		// llega a correr. Sin esto, el picker en marcha seguiría comparando
+		// contra la foto del mando anterior y aceptaría el primer desajuste
+		// entre los dos aparatos como si el piloto lo hubiera movido — justo lo
+		// que esta función existe para no hacer nunca.
+		if ( single && single.padId !== pad.id ) {
+
+			single = null;
+			hint.textContent = 'El mando cambió a mitad de la detección: pulsa Detectar otra vez.';
+
+		}
+
+		if ( guided && guided.padId !== pad.id ) {
+
+			guided = null;
+			hint.textContent = 'El mando cambió a mitad de la calibración: pulsa Calibrar otra vez.';
 
 		}
 
@@ -176,6 +235,12 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 			row.invert.checked = !! m?.inv;
 
 		}
+
+		// Cada frame, no sólo cuando algo cambia: así una caída de un solo frame
+		// del mando —o cualquier otra cosa que deje el cuadro oculto— se
+		// corrige sola en cuanto vuelve a haber mando, sin esperar a la próxima
+		// acción del piloto.
+		refreshSnippet();
 
 		if ( single ) {
 
