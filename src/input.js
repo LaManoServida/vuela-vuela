@@ -94,8 +94,6 @@ export class InputManager {
 		// perdería si sólo mirásemos el estado mantenido.
 		this._pending = new Set();
 		this._edges = new Set();
-		this._raw = new Float32Array( 16 );
-		this._rawCount = 0;
 
 		this._onKeyDown = e => {
 
@@ -204,26 +202,6 @@ export class InputManager {
 		}
 
 		return pad;
-
-	}
-
-	/** Ejes crudos del mando, para la pantalla de mapeo. */
-	pollRaw() {
-
-		const pad = this.getGamepad();
-		this._rawCount = 0;
-		if ( ! pad ) return this._raw;
-
-		const n = Math.min( pad.axes.length, this._raw.length );
-		for ( let i = 0; i < n; i ++ ) this._raw[ i ] = pad.axes[ i ];
-		this._rawCount = n;
-		return this._raw;
-
-	}
-
-	get rawCount() {
-
-		return this._rawCount;
 
 	}
 
