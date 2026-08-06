@@ -169,6 +169,17 @@ catches( 'inv escrito como cadena', c => {
 		throttle: { axis: 3, inv: true },
 	} };
 }, 'gamepads.Mando de prueba.roll.inv' );
+// Dos filas leyendo el mismo eje físico es exactamente el síntoma que había que
+// matar —timón y gas en el mismo stick—, y por el fichero se cuela sin que el
+// panel intervenga: cada eje es válido por separado.
+catches( 'dos ejes del mismo mando apuntando al mismo índice', c => {
+	c.gamepads = { 'Mando de prueba': {
+		roll: { axis: 2, inv: false },
+		pitch: { axis: 1, inv: true },
+		yaw: { axis: 2, inv: false },
+		throttle: { axis: 3, inv: true },
+	} };
+}, 'gamepads.Mando de prueba: roll y yaw apuntan al mismo eje (2)' );
 
 const vacio = structuredClone( baseConfig );
 vacio.gamepads = {};

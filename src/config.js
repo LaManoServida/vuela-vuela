@@ -476,6 +476,49 @@ function checkUi( cfg, out ) {
 }
 
 /**
+ * Dos ejes de un mismo mando no pueden apuntar al mismo eje físico. Es la
+ * mitad del contrato que el esquema no ve: `axis: 2` es válido en `roll` y es
+ * válido en `yaw`, y los dos a la vez son el síntoma original —timón y gas
+ * leyendo el mismo stick—. Aquí importa porque `gamepads` se edita a mano por
+ * diseño y `input.js` lo copia tal cual: sin esto, una errata de una tecla
+ * devuelve el fallo entero sin que el panel de calibración intervenga.
+ */
+function checkGamepads( cfg, out ) {
+
+	if ( ! cfg.gamepads || typeof cfg.gamepads !== 'object' ) return;
+
+	// Los cuatro nombres salen del propio contrato, no de una lista repetida
+	// aquí que se quedaría vieja en cuanto el esquema cambiara.
+	const ejes = Object.keys( SCHEMA.fields.gamepads.item.fields );
+
+	for ( const [ id, map ] of Object.entries( cfg.gamepads ) ) {
+
+		if ( ! map || typeof map !== 'object' ) continue;
+
+		const dueño = new Map();
+
+		for ( const eje of ejes ) {
+
+			const axis = map[ eje ]?.axis;
+			if ( typeof axis !== 'number' ) continue;
+
+			if ( dueño.has( axis ) ) {
+
+				out.errors.push( `gamepads.${ id }: ${ dueño.get( axis ) } y ${ eje } apuntan al mismo eje (${ axis })` );
+
+			} else {
+
+				dueño.set( axis, eje );
+
+			}
+
+		}
+
+	}
+
+}
+
+/**
  * Comprueba un objeto de configuración contra el contrato.
  *
  * Devuelve `errors` (lo que impide arrancar) y `unknown` (claves que sobran, que
@@ -495,6 +538,7 @@ export function validate( raw ) {
 
 	checkNode( raw, SCHEMA, '', out );
 	checkUi( raw, out );
+	checkGamepads( raw, out );
 
 	return out;
 
