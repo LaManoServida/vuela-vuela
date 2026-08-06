@@ -395,7 +395,7 @@ function refreshResume() {
 	dom.btnResume.disabled = ! ready;
 	dom.btnRespawn.disabled = ! ready;
 	dom.pauseNote.textContent = ready
-		? 'La zona ya está cargada en memoria: reanudar es instantáneo.'
+		? 'La zona ya está cargada en memoria: reanudar es instantáneo. Esc también reanuda.'
 		: 'Sin mando no se vuela. Conéctalo y mapea los cuatro ejes aquí abajo; la zona sigue cargada.';
 
 }
@@ -566,6 +566,25 @@ function init() {
 
 		teardownWorld();
 		backToMenu();
+
+	} );
+
+	// `Esc` en la pausa reanuda. Va como oyente suelto y no por `consumeKey()`
+	// porque en pausa el bucle de vuelo está parado y nadie llama a
+	// `input.update()`: la tecla se quedaría encolada hasta el siguiente vuelo.
+	//
+	// Tiene que registrarse DESPUÉS de `input.attach()` —los oyentes de un mismo
+	// evento corren en orden de registro—: así el `resetKeys()` de
+	// `startFlying()` borra esta misma pulsación, y no queda pendiente para el
+	// primer frame de vuelo, que volvería a pausar al instante.
+	window.addEventListener( 'keydown', e => {
+
+		if ( e.code !== 'Escape' || phase !== 'paused' ) return;
+
+		// Sin mando no se reanuda, igual que el botón «Reanudar» está apagado.
+		if ( ! input.hasControl ) return;
+
+		startFlying();
 
 	} );
 

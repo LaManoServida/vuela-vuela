@@ -59,7 +59,8 @@ Sin mando mapeado no se despega, pero la zona **sí** se carga: si terminas la d
 mando, esperas en la pantalla de pausa con el panel de mapeo a mano. Desconectarlo en vuelo
 pausa la partida.
 
-Del teclado sólo queda `Esc` para pausar (la pausa no recarga: la zona sigue en memoria).
+Del teclado sólo queda `Esc`, que pausa y vuelve a reanudar (la pausa no recarga: la zona
+sigue en memoria).
 Tras un choque se reaparece solo, al segundo y medio: se ajusta con `respawnDelay` en
 `vuela.config.js`.
 
