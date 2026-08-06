@@ -75,7 +75,14 @@ export default {
 	// panel de mando, y es distinta en Chrome y en Firefox). El que esté aquí se
 	// aplica solo al enchufarlo: mover un stick es todo el trámite. Los que no
 	// estén se calibran en el panel, que te da este mismo trozo listo para pegar.
-	gamepads: {},
+	gamepads: {
+	'FeiYing Simulator - RealFlight R7 Controller (Vendor: 1781 Product: 0e56)': {
+		roll: { axis: 0, inv: false },
+		pitch: { axis: 1, inv: true },
+		yaw: { axis: 4, inv: false },
+		throttle: { axis: 2, inv: false },
+	},
+},
 
 	// =====================================================================
 	//  Sitios
