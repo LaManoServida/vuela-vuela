@@ -217,9 +217,12 @@ console.log( '\n== modo angle ==' );
 
 	// En acro NO se autonivela: al centrar el stick el giro se para, pero el
 	// dron se queda con la inclinación que tuviera. Eso es acro.
+	// 0.6 s de margen y no 0.4: frenar 690 °/s son dos ciclos largos del lazo, y
+	// a los 0.4 s todavía se está en el segundo. Medir ahí no comprueba que el
+	// giro pare, comprueba en qué punto del transitorio cae el corte.
 	const a = makeQuad();
 	fly( a, { roll: 1, throttle: a.hoverThrottle }, 0.12 );
-	fly( a, { throttle: a.hoverThrottle }, 0.4 );
+	fly( a, { throttle: a.hoverThrottle }, 0.6 );
 	const held = a.attitude().roll;
 	check( 'centrar el stick para el giro', Math.abs( a.body.omega.z ) < 0.05,
 		`ωz=${ a.body.omega.z.toFixed( 3 ) } rad/s` );
