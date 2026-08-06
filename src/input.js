@@ -244,3 +244,187 @@ export class InputManager {
 	}
 
 }
+
+// ---------------------------------------------------------------------------
+//  Calibración
+// ---------------------------------------------------------------------------
+
+/**
+ * Busca qué eje físico se está moviendo, comparándolo con una foto de todos los
+ * ejes tomada al empezar el paso.
+ *
+ * No sabe de navegador ni de reloj: recibe las muestras y los segundos
+ * transcurridos. Por eso se prueba entera en Node, que es lo que hace que «no se
+ * inventa nada» y «dos ejes no colisionan» sean reglas verificadas y no
+ * intenciones.
+ */
+export class AxisPicker {
+
+	constructor( base, { exclude = [], accept = 0.5, floor = 0.25, timeout = 5 } = {} ) {
+
+		this.base = Array.from( base );
+		this.exclude = new Set( exclude );
+		this.accept = accept;
+		this.floor = floor;
+		this.timeout = timeout;
+
+		this.best = 0;
+		this.bestAxis = - 1;
+		this.bestValue = 0;
+
+	}
+
+	/**
+	 * `null` mientras busca · `{ axis, inv }` cuando acepta · `{ axis: null }` si
+	 * se agota el tiempo sin un movimiento que valga.
+	 */
+	sample( axes, elapsed ) {
+
+		for ( let i = 0; i < axes.length; i ++ ) {
+
+			// Un eje que ya tiene dueño no puede volver a ganar.
+			if ( this.exclude.has( i ) ) continue;
+
+			const delta = Math.abs( axes[ i ] - ( this.base[ i ] ?? 0 ) );
+
+			if ( delta > this.best ) {
+
+				this.best = delta;
+				this.bestAxis = i;
+				this.bestValue = axes[ i ];
+
+			}
+
+		}
+
+		if ( this.best >= this.accept ) return this._picked();
+		if ( elapsed >= this.timeout ) return this.best >= this.floor ? this._picked() : { axis: null };
+
+		return null;
+
+	}
+
+	_picked() {
+
+		return { axis: this.bestAxis, inv: this.bestValue < 0 };
+
+	}
+
+}
+
+/**
+ * ¿Ha vuelto ese eje a donde estaba en la foto? Contra la foto y no contra el
+ * centro: en una emisora el gas se queda donde lo dejas.
+ */
+export function hasReturned( axes, base, axis, tolerance = 0.15 ) {
+
+	return Math.abs( ( axes[ axis ] ?? 0 ) - ( base[ axis ] ?? 0 ) ) <= tolerance;
+
+}
+
+/**
+ * La calibración guiada: los cuatro ejes en el orden de `AXES`, uno detrás de
+ * otro, y ninguno inventado.
+ *
+ * Entre paso y paso no se espera un tiempo fijo: se espera a que el stick vuelva
+ * a donde estaba. Así su regreso no puede contar como el movimiento del paso
+ * siguiente, y el ritmo lo marca la mano y no un temporizador que unas veces
+ * sobra y otras se queda corto. Con un tope de dos segundos por si no vuelve —una
+ * palanca de tres posiciones, por ejemplo—: ese eje ya está excluido y no puede
+ * volver a ganar, así que esperar más no protege de nada y colgaría la secuencia.
+ */
+export class Calibration {
+
+	constructor( opts = {} ) {
+
+		this.opts = opts;
+		this.releaseTimeout = opts.releaseTimeout ?? 2;
+
+		this.map = {};
+		this.used = [];
+		this.index = 0;
+		this.done = false;
+		this.failed = null;
+		this.picker = null;
+		this.release = null;
+		this.t0 = 0;
+
+	}
+
+	/** El eje que toca mover ahora, o `null` si ya no queda ninguno. */
+	get step() {
+
+		return this.done ? null : AXES[ this.index ];
+
+	}
+
+	/** Arranca el primer paso con la foto de los ejes de este instante. */
+	begin( axes, t ) {
+
+		this.map = {};
+		this.used = [];
+		this.index = 0;
+		this.done = false;
+		this.failed = null;
+		this.release = null;
+		this._pick( axes, t );
+
+	}
+
+	/** `'buscando'` · `'suelta'` · `'hecho'` · `'fallo'`. */
+	sample( axes, t ) {
+
+		if ( this.done ) return this.failed ? 'fallo' : 'hecho';
+
+		if ( this.release ) {
+
+			const vuelto = hasReturned( axes, this.release.base, this.release.axis );
+			if ( ! vuelto && t - this.release.t0 < this.releaseTimeout ) return 'suelta';
+
+			this.release = null;
+			this.index ++;
+			this._pick( axes, t );
+			return 'buscando';
+
+		}
+
+		const got = this.picker.sample( axes, t - this.t0 );
+		if ( ! got ) return 'buscando';
+
+		const step = this.step;
+
+		if ( got.axis === null ) {
+
+			this.failed = step.id;
+			this.done = true;
+			return 'fallo';
+
+		}
+
+		this.map[ step.id ] = { axis: got.axis, inv: got.inv };
+		this.used.push( got.axis );
+
+		if ( this.index + 1 >= AXES.length ) {
+
+			this.done = true;
+			return 'hecho';
+
+		}
+
+		// El paso no avanza hasta que el stick vuelve: mientras se espera, `step`
+		// sigue siendo el eje recién calibrado, que es lo que el panel enseña.
+		// La referencia del regreso es la foto del principio del paso —con el
+		// stick en reposo—, no la de ahora, que lo pilla en el tope.
+		this.release = { axis: got.axis, base: this.picker.base, t0: t };
+		return 'suelta';
+
+	}
+
+	_pick( axes, t ) {
+
+		this.picker = new AxisPicker( axes, { ...this.opts, exclude: this.used } );
+		this.t0 = t;
+
+	}
+
+}
