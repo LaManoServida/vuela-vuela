@@ -11,7 +11,6 @@ import { Hud } from './hud.js';
 import { buildMenu, buildGamepadPanel, buildPauseSettings } from './menu.js';
 
 const dom = {
-	canvasHost: document.body,
 	canvas: document.getElementById( 'viewport' ),
 	menu: document.getElementById( 'menu' ),
 	menuBody: document.getElementById( 'menu-body' ),
@@ -340,6 +339,11 @@ function startFlying() {
 	closePause();
 	hud.show();
 	hud.skipFrames( 12 );
+
+	// El menú o la pausa pueden dejar un `Esc` o una `R` pendientes —tocados
+	// por reflejo, por ejemplo al intentar despausar—; sin vaciarlos se
+	// disparan solos en el primer frame de vuelo. Ver `InputManager.resetKeys`.
+	input.resetKeys();
 
 	lastTime = performance.now();
 	cancelAnimationFrame( rafId );

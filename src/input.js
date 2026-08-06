@@ -24,7 +24,6 @@ export class InputManager {
 		this.config = config;
 
 		this.controls = { roll: 0, pitch: 0, yaw: 0, throttle: 0 };
-		this.source = 'none';
 		this.gamepadIndex = null;
 
 		this._keys = new Set();
@@ -73,7 +72,26 @@ export class InputManager {
 
 	}
 
-	/** Hay con qué volar: mando conectado y ejes mapeados. */
+	/**
+	 * Vacía las teclas mantenidas, las sueltas y los flancos pendientes.
+	 * `_pending` sólo se vacía dentro de `update()`, y `update()` sólo corre
+	 * dentro del bucle de vuelo: sin esto, un `Esc` o una `R` tocados en el
+	 * menú o en la pausa —antes de que el bucle arranque— se disparan solos
+	 * en cuanto corre el primer `update()` del vuelo.
+	 */
+	resetKeys() {
+
+		this._keys.clear();
+		this._pending.clear();
+		this._edges.clear();
+
+	}
+
+	/**
+	 * Hay con qué volar: mando conectado y ejes mapeados. Da por hecho que un
+	 * mapeo trae los cuatro ejes: lo garantizan el contrato de `src/config.js`
+	 * y `ensureMap()` en `src/menu.js`, no esta clase.
+	 */
 	get hasControl() {
 
 		return this.getGamepad() !== null && !! this.config.gamepadMap;
@@ -133,14 +151,12 @@ export class InputManager {
 
 		if ( pad && this.config.gamepadMap ) {
 
-			this.source = 'gamepad';
 			this.readGamepad( pad, this.config.gamepadMap );
 
 		} else {
 
 			// Sin mando no se inventa nada: ejes al centro y gas cortado. Quien
 			// decide qué hacer con eso es `main.js`, que pausa el vuelo.
-			this.source = 'none';
 			this.controls.roll = 0;
 			this.controls.pitch = 0;
 			this.controls.yaw = 0;

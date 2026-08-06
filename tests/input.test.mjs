@@ -1,7 +1,10 @@
 /*
  * La entrada tiene un solo camino: el mando. Aquí se comprueban las dos mitades
  * de esa regla —sin mando no hay mandos, con mando y mapeo los ejes llegan con
- * su inversión y su banda muerta— sin abrir un navegador.
+ * su inversión y su banda muerta— y el rastro de teclado que sobrevive (`Esc`,
+ * `R`): que no se disparen solas por haberse pulsado antes de que arranque el
+ * vuelo, y que sí lleguen, una vez cada una, mientras se vuela. Todo sin abrir
+ * un navegador.
  */
 import { InputManager } from '../src/input.js';
 
@@ -35,7 +38,6 @@ console.log( '\n== sin mando no hay mandos ==' );
 	const c = input.update();
 
 	check( 'no hay control', input.hasControl === false );
-	check( 'la fuente es ninguna', input.source === 'none', input.source );
 	check( 'ejes a cero', c.roll === 0 && c.pitch === 0 && c.yaw === 0 );
 	check( 'gas cortado', c.throttle === 0 );
 }
@@ -58,7 +60,6 @@ console.log( '\n== con mando y mapeo llegan los ejes ==' );
 	const c = input.update();
 
 	check( 'hay control', input.hasControl === true );
-	check( 'la fuente es el mando', input.source === 'gamepad', input.source );
 	check( 'roll pasa por la banda muerta',
 		Math.abs( c.roll - ( 0.6 - 0.04 ) / 0.96 ) < 1e-9, `${ c.roll.toFixed( 4 ) }` );
 	check( 'pitch llega invertido',
@@ -76,6 +77,56 @@ console.log( '\n== no queda API de ratón ==' );
 	check( 'sin releaseCapture', input.releaseCapture === undefined );
 	check( 'sin readMouseKeyboard', input.readMouseKeyboard === undefined );
 	check( 'sin resetStick', input.resetStick === undefined );
+}
+
+// `window` no existe en Node: se finge uno mínimo para poder llamar a
+// `attach()` y disparar `keydown` a mano, como haría un teclado de verdad.
+const fakeWindow = () => {
+
+	const handlers = {};
+	globalThis.window = {
+		addEventListener: ( type, fn ) => { ( handlers[ type ] ||= [] ).push( fn ); },
+		removeEventListener() {},
+	};
+	return handlers;
+
+};
+
+const press = ( handlers, code ) => handlers.keydown.forEach( fn => fn( { code, repeat: false } ) );
+
+console.log( '\n== las teclas de antes de volar no se disparan solas en el primer frame ==' );
+{
+	// Reproduce el bug: `Esc` tocado en el menú o en la pausa —antes de que
+	// arranque el bucle de vuelo— no debe ejecutarse en cuanto `update()` corre
+	// por primera vez. `resetKeys()` es lo que rompe ese arrastre.
+	setPads( [] );
+	const handlers = fakeWindow();
+	const input = new InputManager( { deadzone: 0.04, gamepadMap: null } );
+	input.attach();
+
+	press( handlers, 'Escape' );
+	press( handlers, 'KeyR' );
+
+	input.resetKeys();
+	input.update();
+
+	check( 'Escape no llega solo por haberse pulsado antes de volar', input.consumeKey( 'Escape' ) === false );
+	check( 'KeyR no llega solo por haberse pulsado antes de volar', input.consumeKey( 'KeyR' ) === false );
+}
+
+console.log( '\n== una tecla pulsada durante el vuelo llega una sola vez ==' );
+{
+	setPads( [] );
+	const handlers = fakeWindow();
+	const input = new InputManager( { deadzone: 0.04, gamepadMap: null } );
+	input.attach();
+	input.update(); // primer frame, ya sin pulsaciones pendientes
+
+	press( handlers, 'KeyR' );
+	input.update();
+
+	check( 'consumeKey ve la pulsación', input.consumeKey( 'KeyR' ) === true );
+	check( 'consumeKey no la ve una segunda vez', input.consumeKey( 'KeyR' ) === false );
 }
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
