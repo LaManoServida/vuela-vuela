@@ -59,6 +59,10 @@ reconocido para siempre**. A partir de ahí, arrancar es enchufarlo y mover un s
 Ese meneo inicial no te lo puedo ahorrar: ningún navegador enseña un mando hasta que lo
 tocas una vez. Lo que sí se ahorra es todo lo demás —no hay que pulsar nada.
 
+Calibrar borra lo que hubiera antes, así que si abandonas a medias —o le das a *Borrar
+mapeo* sin querer— el mando se queda sin ejes. *Volver al mapeo del fichero* lo deja como
+estaba: no hace falta recargar la página, que desde la pausa cuesta la zona entera.
+
 Sin los cuatro ejes mapeados no se despega, pero la zona **sí** se carga: si terminas la
 descarga sin mando, esperas en la pantalla de pausa con el panel a mano. Desconectarlo en
 vuelo pausa la partida.

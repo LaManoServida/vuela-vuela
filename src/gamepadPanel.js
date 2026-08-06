@@ -102,6 +102,37 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		} ),
 	] );
 
+	/*
+	 * La salida de emergencia de un mando que SÍ está en el fichero.
+	 *
+	 * Calibrar borra el mapa activo antes del primer paso, y abandonar a medias
+	 * —o pulsar «Borrar mapeo» sin querer— deja al piloto sin nada con que
+	 * volar: desenchufar y volver a enchufar no lo arregla, porque el mando es
+	 * el mismo y `input.js` sólo reaplica el mapeo del fichero cuando cambia de
+	 * aparato. Sin este botón la única salida sería recargar la página, que
+	 * desde la pausa cuesta la descarga entera de la zona.
+	 */
+	const restore = h( 'button', {
+		text: 'Volver al mapeo del fichero',
+		// Apagado hasta que el primer `tick` diga si hay a qué volver: nace
+		// antes de que se haya mirado un solo mando.
+		disabled: true,
+		onclick: () => {
+
+			const pad = input.getGamepad();
+			const guardado = pad && config.gamepads?.[ pad.id ];
+			if ( ! guardado ) return;
+
+			single = guided = null;
+			// Copia, nunca el objeto de la biblioteca: las casillas «inv» del
+			// panel editan el mapa activo en caliente.
+			config.gamepadMap = structuredClone( guardado );
+			hint.textContent = 'Puesto el mapeo que guarda el fichero para este mando.';
+			changed();
+
+		},
+	} );
+
 	function changed() {
 
 		refreshSnippet();
@@ -172,6 +203,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 			hint.textContent = 'El navegador no enseña el mando hasta que lo tocas; no es cosa del juego.';
 			single = guided = null;
 			snippetBox.hidden = true;
+			restore.disabled = true;
 
 			for ( const row of rows ) {
 
@@ -205,7 +237,13 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 		}
 
-		const conocido = config.gamepads?.[ pad.id ] !== undefined;
+		const guardado = config.gamepads?.[ pad.id ];
+
+		// Sólo se ofrece volver si hay a qué volver y no es ya lo que hay
+		// puesto: un botón que no cambia nada es un botón que engaña.
+		restore.disabled = guardado === undefined || sameMap( config.gamepadMap, guardado );
+
+		const conocido = guardado !== undefined;
 		const estado = conocido ? 'mapeo del fichero'
 			: isCompleteMap( config.gamepadMap ) ? 'calibrado en esta sesión'
 				: 'sin calibrar';
@@ -296,6 +334,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 				},
 			} ),
+			restore,
 		] ),
 		snippetBox,
 		h( 'p', {
