@@ -51,13 +51,17 @@ También puedes pegarla en el menú, pero sólo dura esa sesión. Es lo único q
 
 ## Controles
 
-Se vuela con mando, y sólo con mando. En el menú, *Mando* → *Detectar* en cada eje, mueve el
-stick en la dirección que te pida y queda mapeado con su inversión; *Mapeo por defecto* sirve
-para la disposición habitual (ejes 0-3) sin detectar nada.
+Se vuela con mando, y sólo con mando. La primera vez: *Mando* → *Calibrar los cuatro ejes*,
+mueve cada stick en la dirección que te pida y suéltalo cuando te lo diga. Al terminar te da
+un trozo de texto: pégalo dentro de `gamepads` en `vuela.config.js` y **ese mando queda
+reconocido para siempre**. A partir de ahí, arrancar es enchufarlo y mover un stick.
 
-Sin mando mapeado no se despega, pero la zona **sí** se carga: si terminas la descarga sin
-mando, esperas en la pantalla de pausa con el panel de mapeo a mano. Desconectarlo en vuelo
-pausa la partida.
+Ese meneo inicial no te lo puedo ahorrar: ningún navegador enseña un mando hasta que lo
+tocas una vez. Lo que sí se ahorra es todo lo demás —no hay que pulsar nada.
+
+Sin los cuatro ejes mapeados no se despega, pero la zona **sí** se carga: si terminas la
+descarga sin mando, esperas en la pantalla de pausa con el panel a mano. Desconectarlo en
+vuelo pausa la partida.
 
 Del teclado sólo queda `Esc`, que pausa y vuelve a reanudar (la pausa no recarga: la zona
 sigue en memoria).

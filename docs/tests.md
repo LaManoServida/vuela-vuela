@@ -42,11 +42,19 @@ distintos en cada brazo, modo angle y horizon, airmode, los regímenes de la hé
 hardware con el vuelo, y estabilidad numérica tras un minuto de pilotaje aleatorio con paso
 de render variable.
 
-`tests/input.test.mjs` cubre la regla de entrada entera: sin mando —o con mando sin
-mapear— los ejes llegan a cero y `hasControl` es falso, y con mapeo los ejes pasan por su
-inversión y su banda muerta, con el gas remapeado de −1..1 a 0..1. Comprueba también que las
-teclas pulsadas fuera del vuelo no se disparan en el primer frame, y que no ha vuelto la API
-del ratón.
+`tests/input.test.mjs` cubre la regla de entrada entera: sin mando —o con mando desconocido— los
+ejes llegan a cero y `hasControl` es falso; un mando cuyo `id` está en `gamepads` queda mapeado
+solo, con los ejes pasando por su inversión y su banda muerta y el gas remapeado de −1..1 a
+0..1; cambiar de mando cambia de mapeo, y volver a enchufar el mismo respeta lo calibrado. Un
+mapeo al que le falte un eje no da control: es el fallo del medio gas, que `hasControl` tapaba
+mirando sólo si había mapa. Cubre además la calibración entera sin navegador —umbral de
+aceptación, exclusión de los ejes ya asignados, el signo que decide la inversión, la espera a
+que el stick vuelva y su tope de dos segundos, y el fallo por no mover nada—, y la misma
+exclusión vista desde `usedAxes`: qué ejes ocupan ya las demás filas, para que redetectar una
+sola no acabe apuntando al eje de otra. Comprueba también que el trozo que se pega en
+`vuela.config.js` vuelve a leerse como el mismo mapeo pese a comillas y barras invertidas en el
+`id`, que las teclas pulsadas fuera del vuelo no se disparan en el primer frame, y que no ha
+vuelto la API del ratón.
 
 `tests/world.test.mjs` cubre la voxelización de geometría real, la caída libre, el choque
 contra fachada y posarse sin temblar. Cubre también las dos formas que tiene la rejilla de
