@@ -243,10 +243,13 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		// puesto: un botón que no cambia nada es un botón que engaña.
 		restore.disabled = guardado === undefined || sameMap( config.gamepadMap, guardado );
 
-		const conocido = guardado !== undefined;
-		const estado = conocido ? 'mapeo del fichero'
-			: isCompleteMap( config.gamepadMap ) ? 'calibrado en esta sesión'
-				: 'sin calibrar';
+		// Lo que se anuncia es el mapa que se está usando, no lo que el fichero
+		// sepa de este mando: decir «mapeo del fichero» con las cuatro filas a
+		// «—» —o después de recalibrar en caliente— es mentir sobre lo único
+		// que el piloto necesita saber antes de despegar.
+		const estado = ! isCompleteMap( config.gamepadMap ) ? 'sin calibrar'
+			: sameMap( config.gamepadMap, guardado ) ? 'mapeo del fichero'
+				: 'calibrado en esta sesión';
 
 		status.textContent = `Mando: ${ pad.id } · ${ pad.axes.length } ejes · ${ estado }`;
 
