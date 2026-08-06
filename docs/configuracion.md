@@ -57,6 +57,31 @@ los números de tu configurador tal cual.
   en caída.
 - **Anti-gravity / TPA / I-term relax** — los tres correctores estándar de Betaflight.
 
+## Mando
+
+`gamepads` guarda un mapeo por cada mando, con la clave que reporta el navegador:
+
+    gamepads: {
+    	'RadioMaster TX16S Joystick (Vendor: 1209 Product: 4f54)': {
+    		roll:     { axis: 0, inv: false },
+    		pitch:    { axis: 1, inv: true  },
+    		yaw:      { axis: 3, inv: false },
+    		throttle: { axis: 2, inv: true  },
+    	},
+    },
+
+Un mando que esté aquí queda mapeado en cuanto el navegador lo ve, sin tocar nada. Uno que
+no esté se calibra en el panel de mando, que te da ese mismo trozo listo para pegar aquí.
+Puede estar vacío (`gamepads: {}`): un mando sin calibrar no es un error.
+
+La clave es exactamente lo que reporta el navegador, y Chrome y Firefox la escriben
+distinta para el mismo aparato. Volar desde otro navegador cuesta una calibración más y
+deja dos entradas.
+
+Una entrada a la que le falte un eje, o con un `axis` fuera de rango, **impide arrancar**
+nombrando la ruta. Es a propósito: un mapeo a medias deja el gas en 0.5 —medio gas al
+despegar, sin stick.
+
 ## Aparato
 
 Todo son magnitudes físicas reales, así que cambiarlas cambia el vuelo por la vía correcta:

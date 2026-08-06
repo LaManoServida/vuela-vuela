@@ -71,13 +71,11 @@ export default {
 
 	deadzone: 0.04,
 
-	// Se vuela con mando y nada más. Sin mapeo el mando se IGNORA: aunque esté
-	// conectado, no se despega hasta que pulses «Mapeo por defecto» —o detectes
-	// los cuatro ejes— en el panel de mando. Para dejarlo fijado desde aquí y no
-	// tener que tocar nada al arrancar:
-	//   { roll: { axis: 0, inv: false }, pitch: { axis: 1, inv: true },
-	//     yaw:  { axis: 2, inv: false }, throttle: { axis: 3, inv: true } }
-	gamepadMap: null,
+	// Un mapeo por mando, con la clave que reporta el navegador (aparece en el
+	// panel de mando, y es distinta en Chrome y en Firefox). El que esté aquí se
+	// aplica solo al enchufarlo: mover un stick es todo el trámite. Los que no
+	// estén se calibran en el panel, que te da este mismo trozo listo para pegar.
+	gamepads: {},
 
 	// =====================================================================
 	//  Sitios

@@ -57,7 +57,6 @@ const block = fields => ( { kind: 'object', fields } );
 const record = item => ( { kind: 'record', item } );
 
 const optional = spec => ( { ...spec, optional: true } );
-const orNull = spec => ( { ...spec, nullable: true } );
 
 const place = block( {
 	id: text(),
@@ -121,7 +120,10 @@ export const SCHEMA = block( {
 
 	// --- Entrada ---
 	deadzone: num( 0, 0.9 ),           // `input.js` divide por `1 - deadzone`
-	gamepadMap: orNull( block( {
+	// Un mapeo por mando, guardado bajo el `id` que reporta el navegador. Es lo
+	// que permite enchufar y volar sin calibrar nada; el mapa que se está usando
+	// no vive aquí, porque depende de qué mando haya enchufado ahora mismo.
+	gamepads: record( block( {
 		roll: padAxis,
 		pitch: padAxis,
 		yaw: padAxis,

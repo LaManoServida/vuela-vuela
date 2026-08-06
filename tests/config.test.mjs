@@ -142,6 +142,38 @@ catches( 'borrar el bloque flight.motor', c => { delete c.flight.motor; }, 'flig
 catches( 'voxelSize a cero', c => { c.voxelSize = 0; }, 'voxelSize' );
 catches( 'borrar deadzone', c => { delete c.deadzone; }, 'deadzone' );
 
+// El mapeo por mando es lo que evita tener que calibrar en cada arranque, y un
+// mapeo a medias es peor que ninguno: sin el eje del gas, `readGamepad` lo
+// remapea a 0.5 y se despega con medio gas.
+catches( 'borrar el bloque gamepads', c => { delete c.gamepads; }, 'gamepads' );
+catches( 'un mando con sólo tres ejes', c => {
+	c.gamepads = { 'Mando de prueba': {
+		roll: { axis: 0, inv: false },
+		pitch: { axis: 1, inv: true },
+		yaw: { axis: 2, inv: false },
+	} };
+}, 'gamepads.Mando de prueba.throttle' );
+catches( 'un eje fuera del rango del mando', c => {
+	c.gamepads = { 'Mando de prueba': {
+		roll: { axis: 99, inv: false },
+		pitch: { axis: 1, inv: true },
+		yaw: { axis: 2, inv: false },
+		throttle: { axis: 3, inv: true },
+	} };
+}, 'gamepads.Mando de prueba.roll.axis' );
+catches( 'inv escrito como cadena', c => {
+	c.gamepads = { 'Mando de prueba': {
+		roll: { axis: 0, inv: 'no' },
+		pitch: { axis: 1, inv: true },
+		yaw: { axis: 2, inv: false },
+		throttle: { axis: 3, inv: true },
+	} };
+}, 'gamepads.Mando de prueba.roll.inv' );
+
+const vacio = structuredClone( baseConfig );
+vacio.gamepads = {};
+check( 'un fichero sin mandos guardados es válido', validate( vacio ).errors.length === 0 );
+
 // Los otros huecos que el modelo daba por hechos.
 catches( 'borrar el bloque ui', c => { delete c.ui; }, 'ui' );
 catches( 'borrar el bloque places', c => { delete c.places; }, 'places' );
