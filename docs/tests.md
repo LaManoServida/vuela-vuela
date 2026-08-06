@@ -29,6 +29,15 @@ que ya no existe) y exige que la validación devuelva un error **que nombre esa 
 es lo que evita que el fichero se rompa en silencio: el flujo documentado es «edítalo y
 recarga», no «edítalo y `npm test`», así que el arranque tiene que quejarse solo.
 
+El bloque `gamepads` lleva sus propios sabotajes, porque es el que más se edita a mano —el
+panel da el trozo y se pega— y el que copia `input.js` tal cual: quitarlo entero, un mando
+con sólo tres ejes (sin el del gas, `readGamepad` lo remapea a 0,5 y se despega con medio
+gas), un `axis` fuera del rango del mando, un `inv` escrito como cadena y —la que no ve el
+esquema, porque cada eje es válido por separado— **dos ejes del mismo mando apuntando al
+mismo índice**, que es exactamente el síntoma original: timón y gas leyendo el mismo stick.
+Un fichero sin ningún mando guardado, en cambio, tiene que seguir siendo válido: se calibra
+en el panel y se pega después.
+
 `tests/flight.test.mjs` no comprueba sólo que el modelo no explote: comprueba que sigue
 representando un dron. Empuje por motor, empuje/peso, gas de sustentación, régimen y consumo
 tienen que caer en el rango de un 5" real, y la figura de mérito de la hélice en el de una
@@ -45,16 +54,20 @@ de render variable.
 `tests/input.test.mjs` cubre la regla de entrada entera: sin mando —o con mando desconocido— los
 ejes llegan a cero y `hasControl` es falso; un mando cuyo `id` está en `gamepads` queda mapeado
 solo, con los ejes pasando por su inversión y su banda muerta y el gas remapeado de −1..1 a
-0..1; cambiar de mando cambia de mapeo, y volver a enchufar el mismo respeta lo calibrado. Un
-mapeo al que le falte un eje no da control: es el fallo del medio gas, que `hasControl` tapaba
-mirando sólo si había mapa. Cubre además la calibración entera sin navegador —umbral de
-aceptación, exclusión de los ejes ya asignados, el signo que decide la inversión, la espera a
-que el stick vuelva y su tope de dos segundos, y el fallo por no mover nada—, y la misma
-exclusión vista desde `usedAxes`: qué ejes ocupan ya las demás filas, para que redetectar una
-sola no acabe apuntando al eje de otra. Comprueba también que el trozo que se pega en
-`vuela.config.js` vuelve a leerse como el mismo mapeo pese a comillas y barras invertidas en el
-`id`, que las teclas pulsadas fuera del vuelo no se disparan en el primer frame, y que no ha
-vuelto la API del ratón.
+0..1, y por los dos caminos por los que puede aparecer: el barrido de `attach()` si ya estaba
+visible al arrancar, y el evento `gamepadconnected` si aparece después. Cambiar de mando cambia
+de mapeo, y volver a enchufar el mismo —con el frame sin ningún mando por medio, que es lo que
+produce un tirón del cable— respeta lo calibrado. `sameMap` decide si lo que hay puesto es lo
+que guarda el fichero, y de eso dependen el estado que anuncia el panel y que aparezca el cuadro
+de pegar. Un mapeo al que le falte un eje no da control: es el fallo del medio gas, que
+`hasControl` tapaba mirando sólo si había mapa. Cubre además la calibración entera sin
+navegador —umbral de aceptación, exclusión de los ejes ya asignados, el signo que decide la
+inversión, la espera a que el stick vuelva y su tope de dos segundos, y el fallo por no mover
+nada—, y la misma exclusión vista desde `usedAxes`: qué ejes ocupan ya las demás filas, para que
+redetectar una sola no acabe apuntando al eje de otra. Comprueba también que el trozo que se
+pega en `vuela.config.js` vuelve a leerse como el mismo mapeo pese a comillas y barras
+invertidas en el `id`, que las teclas pulsadas fuera del vuelo no se disparan en el primer
+frame, y que no ha vuelto la API del ratón.
 
 `tests/world.test.mjs` cubre la voxelización de geometría real, la caída libre, el choque
 contra fachada y posarse sin temblar. Cubre también las dos formas que tiene la rejilla de
