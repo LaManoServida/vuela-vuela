@@ -221,7 +221,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		if ( ! pad ) {
 
 			status.textContent = 'Mueve un stick para detectar el mando.';
-			hint.textContent = 'El navegador no enseña el mando hasta que lo tocas; no es cosa del juego.';
+			hint.textContent = '';
 			single = guided = null;
 			snippetBox.hidden = true;
 			restore.disabled = true;
@@ -364,8 +364,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		h( 'p', {
 			class: 'note',
 			html: 'Se vuela con mando y los cuatro ejes tienen que estar mapeados. Un mando '
-				+ 'guardado en <code>gamepads</code> no hay que calibrarlo nunca más. Del teclado '
-				+ 'sólo queda <kbd>Esc</kbd>, que pausa y reanuda; tras un choque se reaparece solo.',
+				+ 'guardado en <code>gamepads</code> no hay que calibrarlo nunca más.',
 		} ),
 	] ) );
 
