@@ -254,7 +254,16 @@ export default {
 			// --- Filtros ---
 			gyroLpfHz: 150,
 			dtermLpfHz: 110,
-			rcSmoothingHz: 28,             // suavizado del enlace de radio
+
+			// Suavizado del enlace de radio. Betaflight no lo fija a mano: lo
+			// calcula desde la cadencia del receptor, con
+			//   corte = Hz_enlace · 1.5 / (1 + rc_smoothing_auto_factor / 10)
+			// y el factor por defecto (30) deja eso en Hz_enlace · 0.375. Un ELRS
+			// a 250 Hz sale a 94; un Crossfire a 150 Hz, a 56. El 28 de antes
+			// equivalía a un enlace de 75 Hz —más lento que cualquier emisora
+			// moderna— y metía 16 ms de retraso puro entre el stick y el setpoint,
+			// que es la mitad de lo que se tardaba en empezar a girar.
+			rcSmoothingHz: 94,
 
 			// --- Mezclador ---
 			pidSumLimit: 500,
