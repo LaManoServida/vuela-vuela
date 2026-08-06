@@ -111,8 +111,16 @@ Reglas de cada paso:
 - `inv` sale del signo del valor en el momento de aceptar.
 - **Los ejes ya asignados en esta calibración quedan excluidos** de los pasos siguientes.
   Es lo que hace imposible que timón y gas compartan eje.
-- Entre paso y paso se esperan **0,3 s** antes de tomar la foto, para que el stick anterior
-  haya vuelto al centro y su regreso no cuente como movimiento del paso siguiente.
+- El paso siguiente no arranca por reloj, sino **cuando el eje recién asignado vuelve a
+  ±0,15 de donde estaba en la foto de su paso**. Así el regreso del stick no puede contar
+  como el movimiento del paso siguiente, y el ritmo lo marca la mano y no un temporizador
+  que unas veces sobra y otras se queda corto. Mientras tanto el panel pide «suelta el
+  stick». Si no vuelve en **2 s** se sigue igual: ese eje ya está excluido y no puede
+  volver a ganar, así que esperar más no protege de nada y colgaría la secuencia. La foto
+  del paso siguiente se toma justo al terminar esta espera.
+
+  El gas no self-centra en una emisora, pero es el último paso: las tres transiciones que
+  existen —alerones→elevador, elevador→timón, timón→gas— son de ejes que sí vuelven solos.
 - **Nada se inventa.** Lo que no se calibra se queda sin asignar y se muestra como «—».
 
 Los cuatro «Detectar» sueltos siguen, con las mismas dos reglas: no rellenan lo que no se
@@ -186,6 +194,8 @@ En `npm test`:
 - Un mapa al que le falta el gas no da control (el fallo del 0.5).
 - La pieza de calibración, a muestras: acepta al pasar el umbral, respeta la exclusión de
   ejes ya asignados, deduce `inv` del signo y falla al agotar el tiempo sin movimiento.
+- La espera entre pasos: con el stick aún fuera no se pasa al siguiente; se pasa en cuanto
+  vuelve; y se pasa igualmente si no vuelve en 2 s.
 
 **`tests/config.test.mjs`**
 
