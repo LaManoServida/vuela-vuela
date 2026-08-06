@@ -140,9 +140,14 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 	}
 
-	function refreshSnippet() {
+	/*
+	 * `pad` viene de fuera porque `tick` ya lo tiene: pedirlo otra vez es un
+	 * segundo `navigator.getGamepads()` en el mismo frame, y este panel se
+	 * construye una vez y no se destruye nunca —su `tick` sigue corriendo a 60
+	 * Hz mientras se vuela—.
+	 */
+	function refreshSnippet( pad = input.getGamepad() ) {
 
-		const pad = input.getGamepad();
 		const guardado = pad && config.gamepads?.[ pad.id ];
 
 		// El cuadro se enseña exactamente cuando hay algo que pegar: el mapeo
@@ -154,7 +159,14 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		const hayAlgoQuePegar = !! pad && isCompleteMap( config.gamepadMap ) && ! sameMap( config.gamepadMap, guardado );
 
 		snippetBox.hidden = ! hayAlgoQuePegar;
-		if ( hayAlgoQuePegar ) snippet.value = mapSnippet( pad.id, config.gamepadMap );
+		if ( ! hayAlgoQuePegar ) return;
+
+		// Sólo se escribe si el texto cambia. Reasignar `.value` deshace la
+		// selección del piloto, y ahí está el respaldo cuando no hay
+		// portapapeles: «ya está seleccionado, Ctrl+C». Que hasta ahora
+		// sobreviviera era pura suerte —el texto salía idéntico cada vez—.
+		const texto = mapSnippet( pad.id, config.gamepadMap );
+		if ( snippet.value !== texto ) snippet.value = texto;
 
 	}
 
@@ -267,8 +279,8 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		// Cada frame, no sólo cuando algo cambia: así una caída de un solo frame
 		// del mando —o cualquier otra cosa que deje el cuadro oculto— se
 		// corrige sola en cuanto vuelve a haber mando, sin esperar a la próxima
-		// acción del piloto.
-		refreshSnippet();
+		// acción del piloto. Con el mando que ya se ha pedido arriba.
+		refreshSnippet( pad );
 
 		if ( single ) {
 
