@@ -8,6 +8,17 @@ export const AXES = [
 ];
 
 /**
+ * Un mapeo sirve para volar sólo si trae los cuatro ejes. Uno a medias es peor
+ * que ninguno: `readGamepad` devuelve 0 para el eje que falta, y el gas —que se
+ * remapea de −1..1 a 0..1— sale como 0.5. Medio gas al despegar, sin stick.
+ */
+export function isCompleteMap( map ) {
+
+	return !! map && AXES.every( ( { id } ) => typeof map[ id ]?.axis === 'number' );
+
+}
+
+/**
  * Entrada del piloto: mando, y sólo mando.
  *
  * Hubo un camino de ratón y teclado con un stick virtual que no se autocentraba;
@@ -25,6 +36,9 @@ export class InputManager {
 
 		this.controls = { roll: 0, pitch: 0, yaw: 0, throttle: 0 };
 		this.gamepadIndex = null;
+		// De qué mando es el mapa que hay activo. Se compara por `id` y no por
+		// índice porque el índice lo reparte el navegador y cambia solo.
+		this.mappedId = null;
 
 		this._keys = new Set();
 		// Pulsaciones sueltas: una tecla tocada y soltada entre dos frames se
@@ -44,9 +58,12 @@ export class InputManager {
 
 		this._onKeyUp = e => this._keys.delete( e.code );
 
-		this._onGamepad = e => {
+		this._onGamepad = () => {
 
-			if ( this.gamepadIndex === null ) this.gamepadIndex = e.gamepad.index;
+			// Adoptar —y con ello aplicar el mapeo guardado— es cosa de
+			// `getGamepad()`. Aquí sólo se le hace mirar ya, sin esperar al
+			// siguiente frame: en el menú y en la pausa no hay bucle de vuelo.
+			this.getGamepad();
 
 		};
 
@@ -59,8 +76,10 @@ export class InputManager {
 		window.addEventListener( 'keyup', this._onKeyUp );
 		window.addEventListener( 'gamepadconnected', this._onGamepad );
 
-		const pads = navigator.getGamepads?.() || [];
-		for ( const pad of pads ) if ( pad ) this.gamepadIndex = pad.index;
+		// Un mando que ya estuviera visible al arrancar se adopta aquí mismo. Si
+		// el navegador aún no lo enseña —no lo hace hasta que lo tocas: es una
+		// defensa antihuella, no un fallo— lo hará `gamepadconnected`.
+		this.getGamepad();
 
 	}
 
@@ -88,28 +107,54 @@ export class InputManager {
 	}
 
 	/**
-	 * Hay con qué volar: mando conectado y ejes mapeados. Da por hecho que un
-	 * mapeo trae los cuatro ejes: lo garantizan el contrato de `src/config.js`
-	 * y `ensureMap()` en `src/menu.js`, no esta clase.
+	 * Hay con qué volar: mando conectado y los cuatro ejes mapeados. Los cuatro,
+	 * no «algún mapeo»: ver `isCompleteMap`.
 	 */
 	get hasControl() {
 
-		return this.getGamepad() !== null && !! this.config.gamepadMap;
+		return this.getGamepad() !== null && isCompleteMap( this.config.gamepadMap );
 
 	}
 
 	getGamepad() {
 
 		const pads = navigator.getGamepads?.() || [];
-		if ( this.gamepadIndex !== null && pads[ this.gamepadIndex ] ) return pads[ this.gamepadIndex ];
-		for ( const pad of pads ) if ( pad && pad.connected ) {
+		const known = this.gamepadIndex !== null ? pads[ this.gamepadIndex ] : null;
 
-			this.gamepadIndex = pad.index;
-			return pad;
+		if ( known ) return this._adopt( known );
+
+		for ( const pad of pads ) if ( pad && pad.connected ) return this._adopt( pad );
+
+		return null;
+
+	}
+
+	/**
+	 * Toma este mando como el que se está usando y, si ha cambiado de aparato,
+	 * pone el mapeo que le toca.
+	 *
+	 * El mapa activo pertenece siempre al mando que hay en la mano: si el fichero
+	 * conoce su `id` se aplica su mapeo —enchufar y mover un stick es todo el
+	 * trámite—, y si no lo conoce, el mapa anterior deja de valer, porque los
+	 * ejes de otra emisora en ésta no son los mismos ejes.
+	 *
+	 * Por `id` y no por índice: desenchufar y volver a enchufar el mismo mando no
+	 * puede tirar una calibración recién hecha y todavía sin pegar en el fichero.
+	 */
+	_adopt( pad ) {
+
+		this.gamepadIndex = pad.index;
+
+		if ( pad.id !== this.mappedId ) {
+
+			this.mappedId = pad.id;
+			const saved = this.config.gamepads?.[ pad.id ];
+			// Copia: recalibrar no puede editar la biblioteca del fichero.
+			this.config.gamepadMap = saved ? structuredClone( saved ) : null;
 
 		}
 
-		return null;
+		return pad;
 
 	}
 

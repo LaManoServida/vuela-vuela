@@ -5,7 +5,7 @@
  * se dispare sola por haberse pulsado antes de que arranque el vuelo, y que sí
  * llegue, una sola vez, mientras se vuela. Todo sin abrir un navegador.
  */
-import { InputManager } from '../src/input.js';
+import { InputManager, isCompleteMap } from '../src/input.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -21,7 +21,7 @@ const setPads = pads => Object.defineProperty( globalThis, 'navigator', {
 	configurable: true,
 } );
 
-const fakePad = axes => ( { index: 0, connected: true, axes } );
+const fakePad = ( axes, id = 'Mando de prueba' ) => ( { index: 0, id, connected: true, axes } );
 
 const MAPA = {
 	roll: { axis: 0, inv: false },
@@ -52,13 +52,73 @@ console.log( '\n== un mando sin mapear tampoco vuela ==' );
 	check( 'el gas no llega', c.throttle === 0, `throttle=${ c.throttle }` );
 }
 
-console.log( '\n== con mando y mapeo llegan los ejes ==' );
+console.log( '\n== el mapeo guardado es una copia, no la biblioteca ==' );
+{
+	setPads( [ fakePad( [ 0, 0, 0, - 1 ] ) ] );
+	const gamepads = { 'Mando de prueba': structuredClone( MAPA ) };
+	const input = new InputManager( { deadzone: 0.04, gamepads } );
+	input.update();
+
+	input.config.gamepadMap.roll.axis = 7;
+	check( 'recalibrar no edita lo que vino del fichero', gamepads[ 'Mando de prueba' ].roll.axis === 0 );
+}
+
+console.log( '\n== un mando desconocido no inventa mapeo ==' );
+{
+	setPads( [ fakePad( [ 0.9, 0, 0, - 1 ], 'Emisora rarísima' ) ] );
+	const input = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': MAPA } } );
+	const c = input.update();
+
+	check( 'no hay control', input.hasControl === false );
+	check( 'no se ha inventado un mapa', ! input.config.gamepadMap );
+	check( 'los ejes no llegan', c.roll === 0, `roll=${ c.roll }` );
+}
+
+console.log( '\n== cambiar de mando cambia de mapeo ==' );
+{
+	// El mapa activo pertenece al mando que hay en la mano: los ejes de una
+	// emisora en otra no son los mismos ejes.
+	setPads( [ fakePad( [ 0, 0, 0, - 1 ] ) ] );
+	const input = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': MAPA } } );
+	input.update();
+	check( 'el conocido queda mapeado', isCompleteMap( input.config.gamepadMap ) );
+
+	setPads( [ fakePad( [ 0, 0, 0, - 1 ], 'Emisora rarísima' ) ] );
+	input.update();
+	check( 'al enchufar otro, el mapeo anterior deja de valer', ! input.config.gamepadMap );
+
+	// Y desenchufar y volver a enchufar el MISMO no puede tirar una calibración
+	// recién hecha y todavía sin pegar en el fichero.
+	input.config.gamepadMap = structuredClone( MAPA );
+	setPads( [ fakePad( [ 0, 0, 0, - 1 ], 'Emisora rarísima' ) ] );
+	input.update();
+	check( 'reenchufar el mismo mando respeta lo calibrado', isCompleteMap( input.config.gamepadMap ) );
+}
+
+console.log( '\n== un mapeo a medias no vuela ==' );
+{
+	// Sin el eje del gas, `readGamepad` devuelve 0 y lo remapea a (0+1)*0.5:
+	// medio gas al despegar, sin stick. Es el fallo que `hasControl` tapaba.
+	const aMedias = structuredClone( MAPA );
+	delete aMedias.throttle;
+
+	check( 'isCompleteMap lo rechaza', isCompleteMap( aMedias ) === false );
+	check( 'isCompleteMap acepta los cuatro', isCompleteMap( MAPA ) === true );
+
+	setPads( [ fakePad( [ 0, 0, 0, - 1 ] ) ] );
+	const input = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': aMedias } } );
+	input.update();
+	check( 'no hay control con el gas sin mapear', input.hasControl === false );
+}
+
+console.log( '\n== con mando conocido llegan los ejes, sin tocar nada ==' );
 {
 	setPads( [ fakePad( [ 0.6, 0.5, 0.02, - 1 ] ) ] );
-	const input = new InputManager( { deadzone: 0.04, gamepadMap: MAPA } );
+	const input = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': MAPA } } );
 	const c = input.update();
 
 	check( 'hay control', input.hasControl === true );
+	check( 'el mapeo del fichero se aplica solo', input.config.gamepadMap?.roll.axis === 0 );
 	check( 'roll pasa por la banda muerta',
 		Math.abs( c.roll - ( 0.6 - 0.04 ) / 0.96 ) < 1e-9, `${ c.roll.toFixed( 4 ) }` );
 	check( 'pitch llega invertido',
