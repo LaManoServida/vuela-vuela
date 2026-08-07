@@ -66,9 +66,21 @@ const place = block( {
 	lon: num( - 180, 180 ),
 } );
 
+/*
+ * Un eje del mando.
+ *
+ * Los topes son opcionales porque el navegador ya entrega el eje normalizado:
+ * un mapeo sin ellos vuela con ese valor crudo, que es lo que se hacía antes de
+ * medirlos. Cuando están, `input.js` reescala cada lado por separado y el stick
+ * recupera su recorrido entero. Los tres o ninguno: medio juego describiría un
+ * recorrido que no es el que se barrió.
+ */
 const padAxis = block( {
 	axis: num( 0, 31 ),
 	inv: bool(),
+	zero: optional( num( - 1, 1 ) ),
+	min: optional( num( - 1, 1 ) ),
+	max: optional( num( - 1, 1 ) ),
 } );
 
 // Los números del configurador de Betaflight: todos positivos o cero.
@@ -512,7 +524,39 @@ function checkGamepads( cfg, out ) {
 
 			}
 
+			checkTopes( `gamepads.${ id }.${ eje }`, map[ eje ], out );
+
 		}
+
+	}
+
+}
+
+/*
+ * Los topes de un eje, si están.
+ *
+ * Un juego a medias no es medio arreglo: `calibrateAxis` rellena lo que falte
+ * con −1/0/1, así que un `max` suelto describe un recorrido que nadie barrió. Y
+ * unos topes cruzados o pegados no dejan el eje corto —lo dejan hipersensible o
+ * muerto—, que es peor que no calibrarlo.
+ */
+function checkTopes( ruta, m, out ) {
+
+	if ( ! m || typeof m !== 'object' ) return;
+
+	const puestos = [ 'zero', 'min', 'max' ].filter( k => typeof m[ k ] === 'number' );
+	if ( puestos.length === 0 ) return;
+
+	if ( puestos.length < 3 ) {
+
+		out.errors.push( `${ ruta }: los topes van los tres juntos (falta ${ [ 'zero', 'min', 'max' ].filter( k => ! puestos.includes( k ) ).join( ' y ' ) })` );
+		return;
+
+	}
+
+	if ( ! ( m.min < m.zero && m.zero < m.max ) ) {
+
+		out.errors.push( `${ ruta }: los topes tienen que ir min < zero < max (${ m.min } / ${ m.zero } / ${ m.max })` );
 
 	}
 

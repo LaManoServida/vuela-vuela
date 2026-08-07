@@ -19,6 +19,51 @@ export function isCompleteMap( map ) {
 }
 
 /**
+ * Recorrido mínimo que hay que haber barrido para creerse unos topes.
+ *
+ * Unos topes cortos no dejan el eje corto: lo dejan HIPERSENSIBLE, porque el
+ * recorrido que se mide se estira hasta ±1. Guardar una calibración a medias es
+ * peor que no calibrar, así que por debajo de esto no se acepta.
+ */
+export const MIN_SPAN = 1.0;
+
+/**
+ * Lleva el valor crudo de un eje a −1..1 usando sus topes medidos.
+ *
+ * Los dos lados se escalan por separado, como hace Rewired —la biblioteca de
+ * entrada de Velocidrone—: un stick no descansa en el centro geométrico de su
+ * recorrido. El RealFlight R7, sin ir más lejos, reposa en −0.0196 y llega a
+ * −0.9686 y +0.9608, que son tres números distintos.
+ *
+ * Sin topes (`min`/`max`/`zero` ausentes) devuelve el valor crudo: los mapeos
+ * de antes de que esto existiera siguen volando igual que volaban.
+ */
+export function calibrateAxis( raw, cal ) {
+
+	const zero = Number.isFinite( cal?.zero ) ? cal.zero : 0;
+	const min = Number.isFinite( cal?.min ) ? cal.min : - 1;
+	const max = Number.isFinite( cal?.max ) ? cal.max : 1;
+
+	if ( raw >= zero ) {
+
+		const span = max - zero;
+		return span > 1e-6 ? Math.min( 1, ( raw - zero ) / span ) : 0;
+
+	}
+
+	const span = zero - min;
+	return span > 1e-6 ? Math.max( - 1, ( raw - zero ) / span ) : 0;
+
+}
+
+/** ¿Trae este eje topes medidos, o vuela con el valor crudo? */
+export function hasRange( m ) {
+
+	return Number.isFinite( m?.min ) && Number.isFinite( m?.max ) && Number.isFinite( m?.zero );
+
+}
+
+/**
  * Los ejes físicos que ya usan las otras filas del mapeo — la fila
  * `exceptId` queda fuera. Es la mitad de la regla "dos filas no pueden
  * compartir eje" que vive en el panel: la otra mitad, la exclusión dentro de
@@ -47,9 +92,25 @@ export function usedAxes( map, exceptId ) {
 export function sameMap( a, b ) {
 
 	if ( ! a || ! b ) return a === b;
-	return AXES.every( ( { id } ) => a[ id ]?.axis === b[ id ]?.axis && !! a[ id ]?.inv === !! b[ id ]?.inv );
+
+	return AXES.every( ( { id } ) => {
+
+		const x = a[ id ], y = b[ id ];
+		if ( x?.axis !== y?.axis || !! x?.inv !== !! y?.inv ) return false;
+
+		// Los topes también cuentan: recalibrarlos sin tocar el eje sigue siendo
+		// un mapeo distinto del que guarda el fichero, y hay que poder pegarlo.
+		if ( hasRange( x ) !== hasRange( y ) ) return false;
+		if ( ! hasRange( x ) ) return true;
+
+		return near( x.zero, y.zero ) && near( x.min, y.min ) && near( x.max, y.max );
+
+	} );
 
 }
+
+/** Igual hasta donde se escribe en el fichero: cuatro decimales. */
+const near = ( a, b ) => Math.abs( a - b ) < 5e-5;
 
 /**
  * El mapeo escrito tal y como va dentro de `gamepads`, en `vuela.config.js`.
@@ -60,10 +121,127 @@ export function sameMap( a, b ) {
 export function mapSnippet( id, map ) {
 
 	const clave = `'${ id.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;
-	const ejes = AXES.map( ( { id: eje } ) =>
-		`\t\t${ eje }: { axis: ${ map[ eje ].axis }, inv: ${ !! map[ eje ].inv } },` );
+	const n = v => v.toFixed( 4 ).replace( /\.?0+$/, '' ) || '0';
+
+	const ejes = AXES.map( ( { id: eje } ) => {
+
+		const m = map[ eje ];
+		// Los topes sólo se escriben si se han medido: un mapeo sin ellos vuela
+		// con el valor crudo, y escribir −1/0/1 fingiría una calibración.
+		const topes = hasRange( m )
+			? `, zero: ${ n( m.zero ) }, min: ${ n( m.min ) }, max: ${ n( m.max ) }`
+			: '';
+
+		return `\t\t${ eje }: { axis: ${ m.axis }, inv: ${ !! m.inv }${ topes } },`;
+
+	} );
 
 	return `\t${ clave }: {\n${ ejes.join( '\n' ) }\n\t},`;
+
+}
+
+/**
+ * Mide los topes de los cuatro ejes mientras el piloto los barre.
+ *
+ * Es la pieza que faltaba para leer bien una emisora. El navegador entrega el
+ * eje ya normalizado contra el rango que el aparato DECLARA en su descriptor
+ * HID, que no es el que sus sticks recorren de verdad: un RealFlight R7 declara
+ * −1..1 y entrega −0.9686..0.9608 reposando en −0.0196. Sin medirlo se pierde
+ * mando por los dos extremos y el centro queda descolocado.
+ *
+ * Igual que la calibración de Velocidrone, y por el mismo motivo: no hay forma
+ * de saberlo sin que alguien mueva los sticks hasta el final.
+ */
+export class RangeRecorder {
+
+	/**
+	 * @param {object} map   mapeo completo: de aquí salen qué ejes físicos mirar
+	 * @param {Array}  base  foto de los ejes en reposo, para el centro
+	 */
+	constructor( map, base ) {
+
+		this.map = map;
+		this.base = Array.from( base );
+		this.min = {};
+		this.max = {};
+
+		for ( const { id } of AXES ) {
+
+			const axis = map?.[ id ]?.axis;
+			if ( axis === undefined ) continue;
+			const v = base[ axis ] ?? 0;
+			this.min[ id ] = v;
+			this.max[ id ] = v;
+
+		}
+
+	}
+
+	sample( axes ) {
+
+		for ( const { id } of AXES ) {
+
+			const axis = this.map?.[ id ]?.axis;
+			if ( axis === undefined ) continue;
+
+			const v = axes[ axis ];
+			if ( v === undefined ) continue;
+
+			if ( v < this.min[ id ] ) this.min[ id ] = v;
+			if ( v > this.max[ id ] ) this.max[ id ] = v;
+
+		}
+
+	}
+
+	/** Recorrido visto en ese eje. */
+	span( id ) {
+
+		return ( this.max[ id ] ?? 0 ) - ( this.min[ id ] ?? 0 );
+
+	}
+
+	/** Los ejes que aún no se han barrido lo bastante como para creerlos. */
+	get missing() {
+
+		return AXES.filter( ( { id } ) => this.span( id ) < MIN_SPAN ).map( ( { id } ) => id );
+
+	}
+
+	get complete() {
+
+		return this.missing.length === 0;
+
+	}
+
+	/**
+	 * El mapeo con los topes puestos, o `null` si falta barrer algún eje.
+	 *
+	 * El centro de los tres sticks que se autocentran es donde reposaban al
+	 * empezar. El del gas no: descansa en un extremo, así que ahí el centro es
+	 * el medio del recorrido y el eje queda repartido por igual — que es lo que
+	 * espera el −1..1 → 0..1 de `readGamepad`.
+	 */
+	result() {
+
+		if ( ! this.complete ) return null;
+
+		const out = {};
+
+		for ( const { id } of AXES ) {
+
+			const m = this.map[ id ];
+			const min = this.min[ id ];
+			const max = this.max[ id ];
+			const zero = id === 'throttle' ? ( min + max ) / 2 : ( this.base[ m.axis ] ?? 0 );
+
+			out[ id ] = { axis: m.axis, inv: !! m.inv, zero, min, max };
+
+		}
+
+		return out;
+
+	}
 
 }
 
@@ -247,7 +425,10 @@ export class InputManager {
 
 			const m = map[ key ];
 			if ( ! m || pad.axes[ m.axis ] === undefined ) return 0;
-			const v = pad.axes[ m.axis ] * ( m.inv ? - 1 : 1 );
+
+			// Los topes primero —están medidos en el espacio del eje crudo— y la
+			// inversión después, sobre el valor ya normalizado.
+			const v = calibrateAxis( pad.axes[ m.axis ], m ) * ( m.inv ? - 1 : 1 );
 			return MathUtils.clamp( v, - 1, 1 );
 
 		};

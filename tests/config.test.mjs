@@ -181,6 +181,32 @@ catches( 'dos ejes del mismo mando apuntando al mismo índice', c => {
 	} };
 }, 'gamepads.Mando de prueba: roll y yaw apuntan al mismo eje (2)' );
 
+// Los topes del stick. Medio juego describe un recorrido que nadie barrió, y
+// unos topes cruzados o pegados dejan el eje hipersensible o muerto: las dos
+// cosas se cuelan por el fichero sin que el panel intervenga.
+const conEje = ( eje, extra ) => c => {
+	c.gamepads = { 'Mando de prueba': {
+		roll: { axis: 0, inv: false },
+		pitch: { axis: 1, inv: true },
+		yaw: { axis: 2, inv: false },
+		throttle: { axis: 3, inv: true },
+	} };
+	Object.assign( c.gamepads[ 'Mando de prueba' ][ eje ], extra );
+};
+
+catches( 'topes a medias', conEje( 'roll', { max: 0.96 } ),
+	'gamepads.Mando de prueba.roll: los topes van los tres juntos (falta zero y min)' );
+catches( 'topes cruzados', conEje( 'yaw', { zero: 0, min: 0.5, max: - 0.5 } ),
+	'gamepads.Mando de prueba.yaw: los topes tienen que ir min < zero < max' );
+catches( 'topes pegados', conEje( 'pitch', { zero: 0, min: 0, max: 0 } ),
+	'gamepads.Mando de prueba.pitch: los topes tienen que ir min < zero < max' );
+catches( 'un tope fuera de lo que da un eje', conEje( 'throttle', { zero: 0, min: - 3, max: 1 } ),
+	'gamepads.Mando de prueba.throttle.min' );
+
+const conTopes = structuredClone( baseConfig );
+conEje( 'roll', { zero: - 0.0196, min: - 0.9686, max: 0.9608 } )( conTopes );
+check( 'un mando con topes medidos es válido', validate( conTopes ).errors.length === 0 );
+
 const vacio = structuredClone( baseConfig );
 vacio.gamepads = {};
 check( 'un fichero sin mandos guardados es válido', validate( vacio ).errors.length === 0 );

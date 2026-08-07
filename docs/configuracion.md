@@ -82,6 +82,26 @@ Una entrada a la que le falte un eje, o con un `axis` fuera de rango, **impide a
 nombrando la ruta. Es a propósito: un mapeo a medias deja el gas en 0.5 —medio gas al
 despegar, sin stick.
 
+### Topes de los sticks
+
+El navegador no entrega el eje contra el recorrido que los sticks hacen, sino contra el que
+la emisora **declara** en su descriptor HID. No son lo mismo: un RealFlight R7 declara −1..1
+y entrega −0.9686..0.9608 reposando en −0.0196. Volando con el valor crudo se pierde un 4 %
+de recorrido por cada extremo —el gas nunca llega al 100 %— y el centro queda descolocado.
+
+El botón **Medir topes** del panel los mide barriendo los sticks, y añade tres números por
+eje:
+
+    roll: { axis: 0, inv: false, zero: -0.0196, min: -0.9686, max: 0.9608 },
+
+Los dos lados se escalan por separado, porque el reposo no cae en el centro geométrico del
+recorrido. Van los tres juntos o ninguno, y tienen que cumplir `min < zero < max`: unos
+topes a medias o cruzados no dejan el eje corto, lo dejan **hipersensible**, así que el
+arranque falla nombrando la ruta.
+
+Son opcionales. Un mapeo sin ellos vuela con el valor crudo, como se hacía antes de
+medirlos.
+
 ## Aparato
 
 Todo son magnitudes físicas reales, así que cambiarlas cambia el vuelo por la vía correcta:

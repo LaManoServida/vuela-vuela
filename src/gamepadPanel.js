@@ -1,4 +1,4 @@
-import { AXES, AxisPicker, Calibration, isCompleteMap, mapSnippet, sameMap, usedAxes } from './input.js';
+import { AXES, AxisPicker, Calibration, RangeRecorder, calibrateAxis, hasRange, isCompleteMap, mapSnippet, sameMap, usedAxes } from './input.js';
 import { h } from './menu.js';
 
 /*
@@ -40,6 +40,11 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 	// mando cambia a media detección.
 	let single = null;
 	let guided = null;
+
+	// La medida de los topes ({ rec, padId }): qué recorrido tiene de verdad
+	// cada stick. Va después de saber qué eje es cada cual, así que es una fase
+	// aparte y no un paso más de la guiada.
+	let sweep = null;
 
 	for ( const axis of AXES ) {
 
@@ -142,6 +147,14 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		},
 	} );
 
+	// Nace apagado y con la etiqueta de la primera fase: hasta el primer `tick`
+	// no se sabe si hay mando ni si su mapeo está completo.
+	const sweepBtn = h( 'button', {
+		text: 'Medir topes',
+		disabled: true,
+		onclick: () => ( sweep ? saveSweep() : startSweep() ),
+	} );
+
 	function changed() {
 
 		refreshSnippet();
@@ -184,7 +197,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		const pad = input.getGamepad();
 		if ( ! pad ) return;
 
-		guided = null;
+		guided = sweep = null;
 
 		// Los ejes de las otras filas quedan fuera: dos filas no pueden leer el
 		// mismo eje físico. `usedAxes` vive en input.js y está probada allí.
@@ -200,13 +213,48 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		const pad = input.getGamepad();
 		if ( ! pad ) return;
 
-		single = null;
+		single = sweep = null;
 		guided = new Calibration();
 		guided.begin( pad.axes, performance.now() / 1000 );
 		guided.padId = pad.id;
 
 		// Se calibra desde cero: nada heredado que luego no sepas de dónde salió.
 		config.gamepadMap = null;
+		changed();
+
+	}
+
+	/**
+	 * Empieza a medir los topes.
+	 *
+	 * El navegador entrega cada eje normalizado contra el rango que el aparato
+	 * DECLARA, que no es el que sus sticks recorren: el R7 declara −1..1 y da
+	 * −0.9686..0.9608 reposando en −0.0196. Sin medirlo se pierde mando por los
+	 * dos extremos —un 4 % de rate a tope, y el gas que nunca llega al 100 %— y
+	 * el centro queda descolocado. La única forma de saberlo es que alguien
+	 * mueva los sticks hasta el final, que es justo lo que hace Velocidrone.
+	 *
+	 * La foto de ahora es el reposo, de donde sale el centro de los tres sticks
+	 * que se autocentran; por eso se pide soltarlos antes.
+	 */
+	function startSweep() {
+
+		const pad = input.getGamepad();
+		if ( ! pad || ! isCompleteMap( config.gamepadMap ) ) return;
+
+		single = guided = null;
+		sweep = { rec: new RangeRecorder( config.gamepadMap, pad.axes ), padId: pad.id };
+
+	}
+
+	function saveSweep() {
+
+		const medido = sweep?.rec.result();
+		if ( ! medido ) return;
+
+		config.gamepadMap = medido;
+		sweep = null;
+		hint.textContent = 'Topes medidos: los sticks ya dan todo su recorrido.';
 		changed();
 
 	}
@@ -222,9 +270,11 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 			status.textContent = 'Mueve un stick para detectar el mando.';
 			hint.textContent = '';
-			single = guided = null;
+			single = guided = sweep = null;
 			snippetBox.hidden = true;
 			restore.disabled = true;
+			sweepBtn.textContent = 'Medir topes';
+			sweepBtn.disabled = true;
 
 			for ( const row of rows ) {
 
@@ -258,6 +308,16 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 		}
 
+		// Los topes de otro mando no son estos topes: medir a medias entre dos
+		// aparatos daría un recorrido inventado, y un recorrido corto no deja el
+		// eje corto, lo deja hipersensible.
+		if ( sweep && sweep.padId !== pad.id ) {
+
+			sweep = null;
+			hint.textContent = 'El mando cambió a mitad de la medida: pulsa Medir topes otra vez.';
+
+		}
+
 		const guardado = config.gamepads?.[ pad.id ];
 
 		// Sólo se ofrece volver si hay a qué volver y no es ya lo que hay
@@ -277,11 +337,19 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		for ( const row of rows ) {
 
 			const m = config.gamepadMap?.[ row.axis.id ];
-			const raw = m && pad.axes[ m.axis ] !== undefined ? pad.axes[ m.axis ] * ( m.inv ? - 1 : 1 ) : 0;
 
-			row.bar.style.left = `${ ( raw * 0.5 + 0.5 ) * 100 }%`;
-			row.tag.textContent = m ? `eje ${ m.axis } · ${ raw.toFixed( 2 ) }` : '—';
+			// El valor que se enseña es el que vuela: ya con los topes aplicados.
+			// Enseñar el crudo escondería justo lo que esta calibración arregla.
+			const v = m && pad.axes[ m.axis ] !== undefined
+				? calibrateAxis( pad.axes[ m.axis ], m ) * ( m.inv ? - 1 : 1 )
+				: 0;
+
+			row.bar.style.left = `${ ( v * 0.5 + 0.5 ) * 100 }%`;
 			row.invert.checked = !! m?.inv;
+
+			if ( ! m ) row.tag.textContent = '—';
+			else if ( sweep ) row.tag.textContent = `eje ${ m.axis } · barrido ${ sweep.rec.span( row.axis.id ).toFixed( 2 ) }`;
+			else row.tag.textContent = `eje ${ m.axis } · ${ v.toFixed( 2 ) }${ hasRange( m ) ? ' · topes ✓' : '' }`;
 
 		}
 
@@ -325,7 +393,14 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 			if ( paso === 'buscando' ) hint.textContent = `${ guided.step.label }: mueve ${ DIRS[ guided.step.id ] }…`;
 			else if ( paso === 'suelta' ) hint.textContent = 'Suelta el stick…';
-			else if ( paso === 'hecho' ) { hint.textContent = 'Los cuatro ejes calibrados.'; guided = null; }
+			else if ( paso === 'hecho' ) {
+
+				// No se encadena solo con la medida de topes: el gas acaba de
+				// quedarse en su tope y la foto de reposo saldría con él ahí.
+				hint.textContent = 'Los cuatro ejes calibrados. Suelta los sticks y pulsa «Medir topes».';
+				guided = null;
+
+			}
 			else {
 
 				const fallado = AXES.find( a => a.id === guided.failed );
@@ -335,6 +410,27 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 			}
 
 		}
+
+		if ( sweep ) {
+
+			sweep.rec.sample( pad.axes );
+
+			const faltan = sweep.rec.missing
+				.map( id => AXES.find( a => a.id === id ).label.toLowerCase() );
+
+			hint.textContent = faltan.length
+				? `Lleva cada stick a sus dos topes. Falta: ${ faltan.join( ', ' ) }.`
+				: 'Recorrido completo. Pulsa «Guardar topes».';
+
+		}
+
+		// El botón dice en qué fase está y sólo deja seguir cuando se puede: sin
+		// los cuatro ejes no hay nada que medir, y sin barrerlos del todo no hay
+		// nada que guardar.
+		sweepBtn.textContent = sweep ? 'Guardar topes' : 'Medir topes';
+		sweepBtn.disabled = sweep
+			? ! sweep.rec.complete
+			: ! isCompleteMap( config.gamepadMap );
 
 	}
 
@@ -347,11 +443,12 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		hint,
 		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
 			h( 'button', { class: 'primary', text: 'Calibrar los cuatro ejes', onclick: startGuided } ),
+			sweepBtn,
 			h( 'button', {
 				text: 'Borrar mapeo',
 				onclick: () => {
 
-					single = guided = null;
+					single = guided = sweep = null;
 					config.gamepadMap = null;
 					hint.textContent = '';
 					changed();
@@ -364,7 +461,11 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 		h( 'p', {
 			class: 'note',
 			html: 'Se vuela con mando y los cuatro ejes tienen que estar mapeados. Un mando '
-				+ 'guardado en <code>gamepads</code> no hay que calibrarlo nunca más.',
+				+ 'guardado en <code>gamepads</code> no hay que calibrarlo nunca más.<br>'
+				+ '<b>Medir topes</b> es aparte y merece la pena: el navegador entrega cada eje '
+				+ 'contra el rango que la emisora <i>declara</i>, no contra el que sus sticks '
+				+ 'recorren. Sin medirlo se pierde mando en los extremos y el centro queda '
+				+ 'descolocado.',
 		} ),
 	] ) );
 

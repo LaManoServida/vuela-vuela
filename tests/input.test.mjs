@@ -5,7 +5,7 @@
  * se dispare sola por haberse pulsado antes de que arranque el vuelo, y que sí
  * llegue, una sola vez, mientras se vuela. Todo sin abrir un navegador.
  */
-import { InputManager, isCompleteMap, usedAxes, sameMap, AxisPicker, hasReturned, Calibration, mapSnippet } from '../src/input.js';
+import { InputManager, isCompleteMap, usedAxes, sameMap, AxisPicker, hasReturned, Calibration, mapSnippet, calibrateAxis, hasRange, RangeRecorder } from '../src/input.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -409,6 +409,123 @@ console.log( '\n== el trozo que se pega en el fichero ==' );
 		check( 'escapa barra invertida y comilla',
 			JSON.stringify( leido ) === JSON.stringify( { [ id ]: MAPA } ), texto );
 	}
+}
+
+// ---------------------------------------------------------------------------
+/*
+ * Topes de los sticks.
+ *
+ * Los números del R7 no son inventados: salen de la calibración que Velocidrone
+ * guarda de ese mismo mando (Rewired, en el registro de Windows). Reposa en
+ * −0.0196 y llega a −0.9686 y +0.9608, tres números distintos, y por eso los
+ * dos lados se escalan por separado.
+ */
+const R7 = { zero: - 0.0196, min: - 0.9686, max: 0.9608 };
+const casi = ( a, b, tol = 1e-3 ) => Math.abs( a - b ) <= tol;
+
+console.log( '\n== topes de los sticks ==' );
+{
+	check( 'sin topes devuelve el valor crudo',
+		calibrateAxis( 0.5, { axis: 0 } ) === 0.5 && calibrateAxis( - 0.5, {} ) === - 0.5 );
+
+	check( 'el reposo del R7 es el cero', casi( calibrateAxis( R7.zero, R7 ), 0 ) );
+	check( 'el tope derecho llega a 1', casi( calibrateAxis( R7.max, R7 ), 1 ) );
+	check( 'el tope izquierdo llega a −1', casi( calibrateAxis( R7.min, R7 ), - 1 ) );
+
+	// Lo que este arreglo recupera: media palanca física.
+	const medio = R7.zero + ( R7.max - R7.zero ) / 2;
+	check( 'media palanca es medio eje', casi( calibrateAxis( medio, R7 ), 0.5 ) );
+	check( 'sin topes media palanca se quedaba corta', casi( medio, 0.4706 ) );
+
+	check( 'pasarse de tope no pasa de 1', calibrateAxis( 1, R7 ) === 1 );
+	check( 'un recorrido nulo no explota', calibrateAxis( 0.5, { zero: 0, min: 0, max: 0 } ) === 0 );
+
+	check( 'hasRange distingue', hasRange( R7 ) === true && hasRange( { axis: 0 } ) === false );
+}
+
+console.log( '\n== medir los topes ==' );
+{
+	const base = [ - 0.0196, - 0.0196, - 0.0196, - 0.0196 ];
+	const rec = new RangeRecorder( MAPA, base );
+
+	check( 'nada barrido, nada que devolver', rec.result() === null && rec.complete === false );
+	check( 'los cuatro ejes salen como pendientes', rec.missing.length === 4 );
+
+	rec.sample( [ R7.max, R7.max, R7.max, R7.max ] );
+	rec.sample( [ R7.min, R7.min, R7.min, R7.min ] );
+
+	check( 'con el barrido completo ya vale', rec.complete === true );
+	check( 'mide el recorrido', casi( rec.span( 'roll' ), 1.9294 ) );
+
+	const out = rec.result();
+	check( 'el centro de un stick es donde reposaba', casi( out.roll.zero, - 0.0196 ) );
+	check( 'el centro del gas es el medio del recorrido',
+		casi( out.throttle.zero, ( R7.min + R7.max ) / 2 ) );
+	check( 'conserva eje e inversión',
+		out.pitch.axis === 1 && out.pitch.inv === true );
+
+	// Un barrido a medias es peor que ninguno: dejaría el eje hipersensible.
+	const flojo = new RangeRecorder( MAPA, base );
+	flojo.sample( [ 0.3, R7.max, R7.max, R7.max ] );
+	flojo.sample( [ - 0.3, R7.min, R7.min, R7.min ] );
+	check( 'un eje a medio barrer no se acepta',
+		flojo.result() === null && flojo.missing.join() === 'roll' );
+}
+
+console.log( '\n== volar con los topes puestos ==' );
+{
+	const conTopes = {
+		roll: { axis: 0, inv: false, ...R7 },
+		pitch: { axis: 1, inv: true, ...R7 },
+		yaw: { axis: 2, inv: false, ...R7 },
+		throttle: { axis: 3, inv: false, zero: ( R7.min + R7.max ) / 2, min: R7.min, max: R7.max },
+	};
+
+	setPads( [ fakePad( [ R7.max, R7.min, R7.max, R7.max ] ) ] );
+	const input = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': conTopes } } );
+	const c = input.update();
+
+	check( 'a tope el alabeo da 1 entero', casi( c.roll, 1 ), c.roll.toFixed( 4 ) );
+	check( 'a tope el cabeceo invertido da 1', casi( c.pitch, 1 ), c.pitch.toFixed( 4 ) );
+	check( 'el gas llega al 100 %', casi( c.throttle, 1 ), c.throttle.toFixed( 4 ) );
+
+	setPads( [ fakePad( [ R7.min, R7.min, R7.min, R7.min ] ) ] );
+	const b = input.update();
+	check( 'el gas llega al 0 %', casi( b.throttle, 0 ), b.throttle.toFixed( 4 ) );
+
+	// Y sin topes se quedaba corto por los dos lados: esto es lo que se perdía.
+	const sinTopes = { ...MAPA, throttle: { axis: 3, inv: false } };
+	setPads( [ fakePad( [ R7.max, R7.min, R7.max, R7.max ] ) ] );
+	const viejo = new InputManager( { deadzone: 0.04, gamepads: { 'Mando de prueba': sinTopes } } ).update();
+	check( 'sin topes el alabeo se quedaba en 0.96', casi( viejo.roll, 0.9592 ),
+		viejo.roll.toFixed( 4 ) );
+	check( 'sin topes el gas no llegaba al 100 %', casi( viejo.throttle, 0.9804 ),
+		viejo.throttle.toFixed( 4 ) );
+}
+
+console.log( '\n== el fichero recuerda los topes ==' );
+{
+	const conTopes = {
+		roll: { axis: 0, inv: false, ...R7 },
+		pitch: { axis: 1, inv: true, ...R7 },
+		yaw: { axis: 2, inv: false, ...R7 },
+		throttle: { axis: 3, inv: true, ...R7 },
+	};
+
+	const texto = mapSnippet( 'R7', conTopes );
+	const leido = new Function( `return ({${ texto }})` )()[ 'R7' ];
+
+	check( 'el trozo para pegar trae los topes',
+		casi( leido.roll.min, R7.min ) && casi( leido.roll.max, R7.max ) && casi( leido.roll.zero, R7.zero ),
+		texto.split( '\n' )[ 1 ].trim() );
+
+	check( 'y sin topes no se los inventa',
+		! /min:/.test( mapSnippet( 'X', MAPA ) ) );
+
+	check( 'recalibrar los topes cuenta como mapeo distinto',
+		sameMap( conTopes, MAPA ) === false );
+	check( 'los mismos topes son el mismo mapeo',
+		sameMap( conTopes, structuredClone( conTopes ) ) === true );
 }
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
