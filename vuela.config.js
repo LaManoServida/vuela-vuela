@@ -111,49 +111,85 @@ export default {
 
 	flight: {
 
-		name: '5" freestyle',
-		hint: 'EMAX 2204 · Gemfan 5146 · 4S',
+		//  Calcado del TBS Oblivion de Velocidrone: los números salen de su
+		//  `settings.db` (chasis 501, motor 301, variador 201, hélice 407,
+		//  batería 104), no de un ajuste a ojo. Cada uno lleva al lado de dónde
+		//  viene. Los tres que NO se copiaron están marcados con «no copiado» y
+		//  explicados donde toca.
+		name: 'TBS Oblivion',
+		hint: 'Gemfan 5146 · 4S 1300',
 
 		frame: {
 			mass: 0.601,                       // kg con batería
 
 			// Tensor de inercia en ejes de cuerpo (x=cabeceo, y=guiñada, z=alabeo).
-			// La guiñada casi dobla a las otras dos: toda la masa cuenta a brazo
-			// completo. Es la razón de que el yaw se sienta más pesado.
-			inertia: [ 0.0032, 0.0058, 0.0032 ],
+			//
+			// Velocidrone lo declara simétrico (`vd_model_moi = 0.004,0.004,0.004`)
+			// y así se copia, porque es de donde sale que su guiñada entre igual
+			// de rápida que el alabeo: 27 ms contra los 48 ms que daría el
+			// reparto físico. No es lo que hace un quad de verdad —toda la masa
+			// cuenta a brazo completo en guiñada, así que Izz ≈ Ixx+Iyy ≈ 0.0072—
+			// pero es lo que hace ESTE quad en ESE simulador.
+			inertia: [ 0.004, 0.004, 0.004 ],
 
 			armRadius: 0.110,                  // m del centro al motor
 			armAngle: 45,                      // grados desde el morro
 
-			// Área de arrastre efectiva (Cd·A) por eje, m². La vertical es la
-			// mayor: de plano el dron es una placa.
-			dragArea: { x: 0.020, y: 0.030, z: 0.018 },
+			// Área de arrastre efectiva (Cd·A) por eje, m², de `dragCoef` (0.014)
+			// por las áreas del chasis: Xarea 0.53, Yarea 1.0, Zarea 0.285.
+			//
+			// Es EL número que separaba a los dos aparatos. El de antes (0.018 de
+			// frente) era 4,5 veces éste y dejaba la punta en 118 km/h: por eso
+			// se inclinaba y no iba.
+			dragArea: { x: 0.00742, y: 0.014, z: 0.00399 },
 
-			angularDrag: 0.0016,               // N·m·s²/rad², amortiguamiento en giro
+			angularDrag: 0.001,                // angular_drag_coeff
 			gravityScale: 1.0,
 		},
 
+		// Velocidrone etiqueta este motor «EMAX MT2204-2300», pero los números que
+		// le da —2500 KV y 50 A de pico— no son los de un 2204, que se queda en
+		// unos 30 A y 700 g de empuje. Son de un 2207. Manda la ficha, no la
+		// etiqueta: con ella salen 994 g por motor y 6,6 de empuje/peso, que es un
+		// 5" moderno normal.
 		motor: {
-			kv: 2300,                          // RPM por voltio
-			resistance: 0.0414,                // Ω por fase
-			noLoadCurrent: 0.7,                // A, lo que se come en vacío
-			currentLimit: 30,                  // A de pico (un 2204 no da más)
-			ktEfficiency: 0.98,                // Kt real frente al ideal 60/(2π·KV)
+			kv: 2500,                          // FlEqMotorKV
+			resistance: 0.04142,               // FlEqMotorR, Ω por fase
+			noLoadCurrent: 0.7,                // FlEqMotorNoLoadCurrent
+			currentLimit: 50,                  // FlEqMotorILimit
+
+			// No copiado: Velocidrone pone 0.85 en `FlEqMotorEfficiency`, pero eso
+			// es un rendimiento global de su modelo, no el Kt real frente al ideal
+			// 60/(2π·KV) que se pide aquí. A 0.85 el empuje/peso baja a 6,2.
+			ktEfficiency: 0.98,
+
+			// No copiado: `FlEqMotorMoI` vale 1e-8, que no es la inercia de
+			// ninguna campana real —la de este motor son microgramos·m², no
+			// nanogramos— sino el apaño con el que su modelo compensa. Aquí el
+			// rotor se integra de verdad, así que va el número físico. A 1e-8 el
+			// alabeo pasaría de 30 a 24 ms y el sobrepico de 14 % a 4 %.
 			inertia: 1.8e-6,                   // kg·m², campana + imanes
 
 			// Ganancia del lazo de velocidad del variador. Es el parámetro que
 			// fija a qué RPM se estabiliza el motor con la hélice puesta: sin él
-			// un 2300 KV a 4S subiría a 38.000 RPM en vacío teórico.
+			// un 2500 KV a 4S subiría a 41.000 RPM en vacío teórico.
+			//
+			// No copiado: Velocidrone pone 0.5 en `MSRGain`, pero eso no es un
+			// dato del motor sino la constante con la que SU modelo de variador
+			// —que además tiene rampa y límite de aceleración propios, que aquí
+			// no existen— cuadra las RPM. Metida en este modelo se lleva el gas
+			// pleno a 30.000 RPM con una 5146 en 4S, que no es un régimen real.
+			// A 0.30 quedan 21.300 RPM y 779 g por motor.
 			msrGain: 0.30,
 			rpmOffset: 2000,
 			emfFactor: 1.0,
 		},
 
 		esc: {
-			currentLimit: 30,                  // A
+			currentLimit: 50,                  // FlEqESCILimit
 			resistance: 0.005,                 // Ω
-			braking: true,                     // frenado activo
-			cutoffCellV: 3.1,                  // V por celda a la que corta
+			braking: true,                     // FlEqESCBraking
+			cutoffCellV: 3.1,                  // FlEqESCCutoffV
 
 			// Curva de respuesta de un variador de 5": mando de entrada → mando
 			// efectivo. No es una recta; la zona baja tiene menos resolución de
@@ -177,8 +213,8 @@ export default {
 			hubFraction: 0.20,
 			inertia: 2.8e-6,                   // kg·m²
 
-			// Polar de la pala.
-			cd0: 0.035,
+			// Polar de la pala (hélice 407, la Gemfan 5146).
+			cd0: 0.03,                         // FlEqPropCd0
 			dCdByCl2: 0.020,
 			clMax: 0.70,
 			clMin: - 0.80,
@@ -195,10 +231,13 @@ export default {
 			vrsBuffet: 0.22,                   // amplitud del temblor
 			vrsBuffetHz: 3.5,
 
-			// Deformación de pala a alta carga (velocidad de sección, m/s).
-			deformMin: 90,
-			deformMax: 130,
-			deformPercent: 0.12,
+			// Deformación de pala a alta carga (velocidad de sección, m/s). La
+			// 5146 de Velocidrone no empieza a flexar hasta 140 m/s; la de antes
+			// lo hacía desde 90, o sea desde 16.600 RPM, y se comía hasta un 12 %
+			// del empuje justo en la parte alta del gas.
+			deformMin: 140,
+			deformMax: 180,
+			deformPercent: 0.15,
 		},
 
 		battery: {
@@ -272,7 +311,7 @@ export default {
 			throttleExpo: 0.0,
 			throttleCap: 1.0,
 			airMode: true,
-			motorIdle: 0.045,
+			motorIdle: 0.04,               // minthrottle 1040 de tu loadout
 
 			// --- Limitador de RPM (el gobernador de BF; normalmente apagado) ---
 			rpmLimit: false,
@@ -336,7 +375,10 @@ export default {
 
 		mass:          { path: 'flight.frame.mass', min: 0.25, max: 1.4, step: 0.005 },
 		armRadius:     { path: 'flight.frame.armRadius', min: 0.05, max: 0.30, step: 0.005 },
-		dragFront:     { path: 'flight.frame.dragArea.z', min: 0.004, max: 0.06, step: 0.001 },
+		// Baja hasta 0.002 y con paso fino porque aquí abajo es donde vive un
+		// chasis limpio: el Oblivion son 0.00399 m² de frente, y con el mínimo en
+		// 0.004 el deslizador no llegaba ni a su propio valor.
+		dragFront:     { path: 'flight.frame.dragArea.z', min: 0.002, max: 0.06, step: 0.0005 },
 		motorKv:       { path: 'flight.motor.kv', min: 1200, max: 4000, step: 10 },
 		motorCurrent:  { path: 'flight.motor.currentLimit', min: 10, max: 60, step: 1 },
 		propDiameter:  { path: 'flight.prop.diameterIn', min: 2, max: 7, step: 0.1 },
