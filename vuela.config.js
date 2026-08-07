@@ -160,14 +160,16 @@ export default {
 
 			// No copiado: Velocidrone pone 0.85 en `FlEqMotorEfficiency`, pero eso
 			// es un rendimiento global de su modelo, no el Kt real frente al ideal
-			// 60/(2π·KV) que se pide aquí. A 0.85 el empuje/peso baja a 6,2.
+			// 60/(2π·KV) que se pide aquí. A 0.85 el empuje/peso baja de 5,19 a
+			// 4,83 y el alabeo se va de 38 a 41 ms.
 			ktEfficiency: 0.98,
 
 			// No copiado: `FlEqMotorMoI` vale 1e-8, que no es la inercia de
 			// ninguna campana real —la de este motor son microgramos·m², no
 			// nanogramos— sino el apaño con el que su modelo compensa. Aquí el
-			// rotor se integra de verdad, así que va el número físico. A 1e-8 el
-			// alabeo pasaría de 30 a 24 ms y el sobrepico de 14 % a 4 %.
+			// rotor se integra de verdad, así que va el número físico. Es el
+			// ajuste con más recorrido si el alabeo se sigue notando pastoso: a
+			// 1e-8 pasa de 38 a 31 ms y el sobrepico de 20 % a 10 %.
 			inertia: 1.8e-6,                   // kg·m², campana + imanes
 
 			// Ganancia del lazo de velocidad del variador. Es el parámetro que
