@@ -396,9 +396,13 @@ console.log( '\n== el hardware manda de verdad ==' );
 	check( 'pero un 6S llega con menos gas', sixS.hoverThrottle < base.hoverThrottle,
 		`${ ( base.hoverThrottle * 100 ).toFixed( 0 ) } → ${ ( sixS.hoverThrottle * 100 ).toFixed( 0 ) } %` );
 
+	// A los 15 ms, no a los 60: lo que se compara es el PAR, y el par sólo se
+	// lee mientras el giro está limitado por él. Pasados 40 ms este aparato ya
+	// ha llegado al rate que pide el stick y los dos brazos miden lo mismo —el
+	// tope del controlador— por mucho que uno haga casi el doble de par.
 	const longArm = makeQuad( p => { p.frame.armRadius *= 1.6; } );
 	const rollRate = q => {
-		fly( q, { roll: 1, throttle: q.hoverThrottle }, 0.06 );
+		fly( q, { roll: 1, throttle: q.hoverThrottle }, 0.015 );
 		return Math.abs( q.body.omega.z );
 	};
 	check( 'brazos más largos dan más par de alabeo',
