@@ -37,6 +37,11 @@ no impide arrancar.
   velocidad de impacto se rompe el dron), `restitution` (cuánto rebota), `friction`
   (cuánto patina contra la fachada), `maxSpin` (cuánto puede voltear un golpe descentrado)
   y `respawnDelay` (segundos de volteo antes de reaparecer solo; 0 reaparece al instante).
+- **Ver la rejilla** — ayuda de depuración: pinta en rojo translúcido las celdas de colisión
+  que rodean al dron, para ver si la rejilla se pega a las fachadas y contra qué se está
+  chocando de verdad. Se enciende y se apaga en la pausa. Hasta dónde llega lo decide
+  `gridRadius` en `vuela.config.js` (50 m); subirlo cuesta con el cubo del radio, así que a
+  partir de 80 m se nota. Apagada no dibuja nada ni ocupa memoria.
 
 El coste de carga crece con el **cuadrado** del radio y con el **cuadrado** del inverso de
 la calidad. Duplicar el radio es 4× de trabajo. El menú te da una estimación en vivo. Todos

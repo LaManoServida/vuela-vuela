@@ -25,13 +25,17 @@ son cáscara, no volumen— pero limpia el interior del terreno.
 
 **Cubos rojos translúcidos.** Es lo único que deja ver la fachada por debajo, que es la
 mitad de para qué sirve la vista: comprobar si la rejilla se pega a la geometría o va
-desplazada. A unos pocos miles de cubos el coste de la transparencia no se mide, así que el
-rendimiento no decide aquí. Los cubos van ligeramente encogidos respecto a la celda: sin
+desplazada. Sobre la ciudad de demo son unos 11.000 cubos, donde el coste de la
+transparencia no decide nada. Los cubos van ligeramente encogidos respecto a la celda: sin
 eso, sus caras quedan coplanares con la fachada y aparece z-fighting.
 
 **Se reconstruye al cruzar de celda.** Volando recto eso es una vez cada pocas décimas;
 parado, nunca. El buffer de instancias se reserva una vez al máximo de la ventana y se
 reusa: ni una asignación por frame.
+
+Medido sobre la ciudad de demo, una reconstrucción cuesta 0,28 ms a 30 m de radio, 0,99 ms
+a 50 y 4,0 ms a 80 —crece con el cubo del radio—. De ahí el valor por defecto: a 80 m una
+reconstrucción ya no cabe en un frame de 120 Hz.
 
 **Apagada no cuesta nada.** La malla no existe hasta que se enciende.
 
