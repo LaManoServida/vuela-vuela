@@ -76,13 +76,15 @@ export default {
 	// aplica solo al enchufarlo: mover un stick es todo el trámite. Los que no
 	// estén se calibran en el panel, que te da este mismo trozo listo para pegar.
 	gamepads: {
-	'FeiYing Simulator - RealFlight R7 Controller (Vendor: 1781 Product: 0e56)': {
-		roll: { axis: 0, inv: false },
-		pitch: { axis: 1, inv: true },
-		yaw: { axis: 4, inv: false },
-		throttle: { axis: 2, inv: false },
+
+		'FeiYing Simulator - RealFlight R7 Controller (Vendor: 1781 Product: 0e56)': {
+			roll:     { axis: 0, inv: false, zero: - 0.0196, min: - 0.9686, max: 0.9608 },
+			pitch:    { axis: 1, inv: true,  zero: - 0.0196, min: - 0.9686, max: 0.9529 },
+			yaw:      { axis: 4, inv: false, zero: - 0.0196, min: - 0.9686, max: 0.9294 },
+			throttle: { axis: 2, inv: false, zero: - 0.0039, min: - 0.9686, max: 0.9608 },
+		},
+
 	},
-},
 
 	// =====================================================================
 	//  Sitios
