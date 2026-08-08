@@ -42,7 +42,7 @@ export default {
 	// =====================================================================
 
 	renderScale: 1.0,          // multiplicador de resolución; bájalo antes que la calidad
-	fov: 100,                  // grados, cámara FPV
+	fov: 90,                   // grados, cámara FPV
 	camTilt: 20,               // grados de inclinación de la cámara
 	unlit: true,               // materiales planos: la textura fotogramétrica ya trae la luz horneada
 	antialias: true,
@@ -52,7 +52,7 @@ export default {
 	//  Juego
 	// =====================================================================
 
-	collisions: true,
+	collisions: false,
 	voxelSize: 2.0,            // m, resolución de la rejilla de colisión
 	crashSpeed: 4.5,           // m/s de impacto que rompe el dron
 
@@ -70,7 +70,7 @@ export default {
 	maxSpin: 30,               // rad/s, tope del volteo que mete un impacto descentrado
 	respawnDelay: 1.5,         // s desde el impacto hasta que reaparece solo (0 = al instante)
 
-	battery: true,
+	battery: false,
 
 	// =====================================================================
 	//  Entrada
