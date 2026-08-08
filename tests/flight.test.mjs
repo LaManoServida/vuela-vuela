@@ -308,18 +308,37 @@ console.log( '\n== hélice: elemento de pala + cantidad de movimiento ==' );
 	// baja hasta un mínimo cuando el rotor cae dentro de su propia estela
 	// (anillo de vórtices) y vuelve a subir cuando cae tan rápido que el aire lo
 	// atraviesa al revés y entra en autorrotación.
+	//
+	// El fichero lo trae apagado, así que el fenómeno se enciende aquí: lo que
+	// se comprueba es que el modelo lo sabe hacer, no cómo esté configurado hoy.
+	const propVrs = new Prop( { ...p.prop, vortexRing: true } );
+	const caer = ( rpm, axial ) => {
+		propVrs.reset();
+		const w = rpm * Math.PI / 30;
+		for ( let i = 0; i < 4000; i ++ ) { propVrs.omega = w; propVrs.update( 0.0005, axial, 0, 1, 1 ); }
+		return propVrs.thrust;
+	};
+
 	const hover = settle( 15000, 0 );
 	const vh = Math.sqrt( hover / ( 2 * 1.225 * prop.discArea ) );
 
-	const inVrs = settle( 15000, - vh * 1.1 );
+	const inVrs = caer( 15000, - vh * 1.1 );
 	check( 'caer dentro de la propia estela hunde el empuje', inVrs < hover * 0.85,
 		`${ hover.toFixed( 2 ) } → ${ inVrs.toFixed( 2 ) } N a ${ ( - vh * 1.1 ).toFixed( 1 ) } m/s` );
-	check( 'y el modelo lo señala como anillo de vórtices', prop.vrs > 0.7,
-		`severidad ${ prop.vrs.toFixed( 2 ) }` );
+	check( 'y el modelo lo señala como anillo de vórtices', propVrs.vrs > 0.7,
+		`severidad ${ propVrs.vrs.toFixed( 2 ) }` );
 
-	const windmill = settle( 15000, - vh * 3 );
+	const windmill = caer( 15000, - vh * 3 );
 	check( 'cayendo muy rápido recupera (autorrotación)', windmill > inVrs * 1.2,
 		`${ inVrs.toFixed( 2 ) } → ${ windmill.toFixed( 2 ) } N a ${ ( - vh * 3 ).toFixed( 1 ) } m/s` );
+
+	// Y apagado no queda ni el hoyo ni el aviso: es lo que hace que meter gas
+	// siempre sirva de algo, que es la razón de poder apagarlo.
+	const sinVrs = settle( 15000, - vh * 1.1 );
+	check( 'apagado, caer no hunde el empuje', sinVrs > hover * 0.95,
+		`${ ( sinVrs / hover * 100 ).toFixed( 1 ) } % del estacionario` );
+	check( 'y el OSD no tiene qué avisar', prop.vrs === 0,
+		`severidad ${ prop.vrs.toFixed( 2 ) }` );
 
 	// Un descenso lento apenas cambia nada: es el régimen donde la teoría de
 	// cantidad de movimiento sigue valiendo.

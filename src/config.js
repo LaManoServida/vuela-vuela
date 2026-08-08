@@ -200,6 +200,7 @@ export const SCHEMA = block( {
 			washFactor: num( 0 ),
 			washRate: num( 0 ),
 			translationalRelief: num( 0 ),
+			vortexRing: bool(),
 			vrsGain: num( 0 ),
 			vrsBuffet: num( 0 ),
 			vrsBuffetHz: num( 0 ),

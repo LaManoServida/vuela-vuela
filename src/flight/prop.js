@@ -181,8 +181,14 @@ export class Prop {
 		// disco vuelve a entrar. Eso no lo ve un modelo de flujo medio, así que
 		// se añade aparte, con una campana centrada donde el fenómeno es peor
 		// (velocidad de caída ≈ 1.1 veces la inducida) y nulo fuera de la banda.
+		// Apagable desde el fichero. Es el único fenómeno del modelo que puede
+		// dejar al piloto sin salida: entre 5 y 9 m/s de caída el empuje se
+		// hunde por debajo del peso aunque metas gas, y hay que caer hasta 12
+		// m/s para volver a ganarle. Con `vortexRing: false` la severidad se
+		// queda en cero y con ella se van la pérdida de empuje, el temblor y el
+		// aviso del OSD, que se enciende con este mismo número.
 		let severity = 0;
-		if ( axialV < 0 && vh > 1e-6 ) {
+		if ( cfg.vortexRing && axialV < 0 && vh > 1e-6 ) {
 
 			const r = - axialV / vh;
 			if ( r < 2.2 ) {

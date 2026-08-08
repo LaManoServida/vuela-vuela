@@ -19,6 +19,10 @@ Cada bloque, en `src/flight/`:
   ataque del flujo que atraviesa el disco, de ahí `Cl`/`Cd` y de ahí empuje y par
   resistente. Incluye velocidad inducida exacta en ascenso, la curva empírica de Johnson
   para el anillo de vórtices, alivio por traslación, deformación de pala y efecto suelo.
+  El anillo de vórtices se puede apagar (`flight.prop.vortexRing`): es el único fenómeno
+  del modelo que deja al piloto sin salida —entre 5 y 9 m/s de caída el empuje se queda
+  por debajo del peso aunque metas gas— y apagarlo se lleva con él la pérdida de empuje,
+  el temblor y el aviso del OSD.
 - **`motor.js`** — motor brushless de continua: fuerza contraelectromotriz, ley de Ohm
   sobre motor + variador + batería, límite de corriente, frenado activo, `τ = Kt·(I − I₀)`
   con `Kt = 60/(2π·KV)`.

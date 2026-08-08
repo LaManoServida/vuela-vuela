@@ -95,7 +95,7 @@ Detalle de qué merece la pena tocar, y por qué: [docs/configuracion.md](docs/c
 | La carga no termina, o la pestaña se queda sin memoria | Radio demasiado grande o calidad demasiado alta. El radio pesa al cuadrado |
 | Va fluido pero a pocos fps | Baja *Escala de render*: es lo más barato |
 | El dron oscila o vibra | Demasiada `P` o `D` para la masa que has puesto. Baja `D` primero |
-| Cae en vertical y el gas no responde | Anillo de vórtices: sal hacia adelante, no metas más gas |
+| Cae en vertical y el gas no responde | Anillo de vórtices: sal hacia adelante, no metas más gas. Se puede apagar con `flight.prop.vortexRing: false` |
 | Los ajustes de vuelo no cambian nada | Los de hardware (masa, hélice, motor) sólo se aplican al cargar la zona; los del controlador son inmediatos |
 | Quiero vaciar la caché de tiles | Consola: `navigator.serviceWorker.controller.postMessage('vv:clear-cache')` |
 
