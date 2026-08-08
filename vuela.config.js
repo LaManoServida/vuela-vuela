@@ -160,9 +160,8 @@ export default {
 
 		// Velocidrone etiqueta este motor «EMAX MT2204-2300», pero los números que
 		// le da —2500 KV y 50 A de pico— no son los de un 2204, que se queda en
-		// unos 30 A y 700 g de empuje. Son de un 2207. Manda la ficha, no la
-		// etiqueta: con ella salen 994 g por motor y 6,6 de empuje/peso, que es un
-		// 5" moderno normal.
+		// unos 30 A. Son de un 2207. Manda la ficha, no la etiqueta: con ella
+		// salen 779 g por motor y 5,89 de empuje/peso, que es un 5" moderno.
 		motor: {
 			kv: 2500,                          // FlEqMotorKV
 			resistance: 0.04142,               // FlEqMotorR, Ω por fase
@@ -171,17 +170,27 @@ export default {
 
 			// No copiado: Velocidrone pone 0.85 en `FlEqMotorEfficiency`, pero eso
 			// es un rendimiento global de su modelo, no el Kt real frente al ideal
-			// 60/(2π·KV) que se pide aquí. A 0.85 el empuje/peso baja de 5,19 a
-			// 4,83 y el alabeo se va de 38 a 41 ms.
+			// 60/(2π·KV) que se pide aquí. A 0.85 el empuje/peso baja de 5,89 a
+			// 5,48 y el alabeo se va de 39 a 42 ms.
 			ktEfficiency: 0.98,
 
-			// No copiado: `FlEqMotorMoI` vale 1e-8, que no es la inercia de
-			// ninguna campana real —la de este motor son microgramos·m², no
-			// nanogramos— sino el apaño con el que su modelo compensa. Aquí el
-			// rotor se integra de verdad, así que va el número físico. Es el
-			// ajuste con más recorrido si el alabeo se sigue notando pastoso: a
-			// 1e-8 pasa de 38 a 31 ms y el sobrepico de 20 % a 10 %.
-			inertia: 1.8e-6,                   // kg·m², campana + imanes
+			// Copiado a sabiendas de que no es física: `FlEqMotorMoI` vale 1e-8, y
+			// la campana de un motor de este tamaño son microgramos·m² —unos
+			// 1.8e-6, diez gramos girando a 13 mm—, no nanogramos. Es el apaño con
+			// el que el modelo de Velocidrone compensa no integrar el rotor.
+			//
+			// Va porque es lo que le da al Oblivion su respuesta en alabeo: 39 → 31
+			// ms y el sobrepico del 20 % al 10 %.
+			//
+			// No sale gratis. La guiñada de un quad no viene del empuje sino de la
+			// reacción al par con que el motor acelera su propio rotor, y un rotor
+			// que no pesa no reacciona: 42 → 49 ms. Por la misma vía se apaga la
+			// precesión giroscópica, aunque ahí el controlador la corrige tan
+			// deprisa que no se lee en la actitud.
+			//
+			// O sea: 8 ms de alabeo a cambio de 7 de guiñada. Devolver 1.8e-6 es
+			// deshacer el cambio entero.
+			inertia: 1e-8,                     // kg·m², campana + imanes
 
 			// Ganancia del lazo de velocidad del variador. Es el parámetro que
 			// fija a qué RPM se estabiliza el motor con la hélice puesta: sin él
