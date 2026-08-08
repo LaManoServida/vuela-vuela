@@ -29,13 +29,20 @@ desplazada. Sobre la ciudad de demo son unos 11.000 cubos, donde el coste de la
 transparencia no decide nada. Los cubos van ligeramente encogidos respecto a la celda: sin
 eso, sus caras quedan coplanares con la fachada y aparece z-fighting.
 
-**Se reconstruye al cruzar de celda.** Volando recto eso es una vez cada pocas décimas;
-parado, nunca. El buffer de instancias se reserva una vez al máximo de la ventana y se
-reusa: ni una asignación por frame.
+**Se reconstruye como mucho una vez por segundo, y sólo si el dron ha cambiado de celda.**
+Parado no se toca nada; en movimiento manda el reloj (`gridRefresh`). El buffer de
+instancias se reserva una vez al máximo de la ventana y se reusa: ni una asignación por
+frame.
 
 Medido sobre la ciudad de demo, una reconstrucción cuesta 0,28 ms a 30 m de radio, 0,99 ms
 a 50 y 4,0 ms a 80 —crece con el cubo del radio—. De ahí el valor por defecto: a 80 m una
 reconstrucción ya no cabe en un frame de 120 Hz.
+
+Espaciar las reconstrucciones reparte ese coste pero **no lo reduce**: el frame que
+reconstruye cuesta lo mismo, sólo llega diez veces menos a menudo. Lo que se paga es que la
+ventana deja de estar centrada en el dron entre una y otra —a 20 m/s se descentra 20 m en
+un segundo, y lo que se ve por delante encoge de 50 a 30 m antes de dar el salto—. Para
+mirar contra qué se choca, que es despacio o parado, no importa.
 
 **Apagada no cuesta nada.** La malla no existe hasta que se enciende.
 

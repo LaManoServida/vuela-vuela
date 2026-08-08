@@ -41,7 +41,10 @@ no impide arrancar.
   que rodean al dron, para ver si la rejilla se pega a las fachadas y contra qué se está
   chocando de verdad. Se enciende y se apaga en la pausa. Hasta dónde llega lo decide
   `gridRadius` en `vuela.config.js` (50 m); subirlo cuesta con el cubo del radio, así que a
-  partir de 80 m se nota. Apagada no dibuja nada ni ocupa memoria.
+  partir de 80 m se nota. `gridRefresh` (1 s) limita cada cuánto se rehace la ventana: no
+  abarata la reconstrucción, la espacia. Bajarlo la recentra antes en el dron a costa de
+  gastar más a menudo; 0 la rehace cada vez que el dron cambia de celda. Apagada no dibuja
+  nada ni ocupa memoria.
 
 El coste de carga crece con el **cuadrado** del radio y con el **cuadrado** del inverso de
 la calidad. Duplicar el radio es 4× de trabajo. El menú te da una estimación en vivo. Todos
