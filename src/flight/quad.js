@@ -39,8 +39,6 @@ const _qi = new Quaternion();
 const _qRender = new Quaternion();
 const _euler = new Euler( 0, 0, 0, 'YXZ' );
 const _probe = new Vector3();
-const _down = new Vector3();
-const _downSmooth = new Vector3();
 const _gyro = new Float32Array( 3 );
 const _sticks = { roll: 0, pitch: 0, yaw: 0, throttle: 0 };
 
@@ -126,7 +124,6 @@ export class Quad {
 		this.grid = null;
 		this.groundHeight = null;      // m sobre el suelo, o null si no se conoce
 
-		this._smoothed = new Quaternion();
 		this._accumulator = 0;
 
 		// Estado del subpaso anterior y fracción pendiente, para interpolar lo que
@@ -161,7 +158,6 @@ export class Quad {
 		for ( const p of this.props ) p.reset();
 		for ( const m of this.motors ) m.reset();
 
-		this._smoothed.identity();
 		this._accumulator = 0;
 		this.syncRender();
 
@@ -228,7 +224,6 @@ export class Quad {
 		this.body.position.copy( this.spawn );
 		_euler.set( 0, this.spawnYaw, 0 );
 		this.body.quaternion.setFromEuler( _euler );
-		this._smoothed.copy( this.body.quaternion );
 
 		// Rotores ya girando a la velocidad de sustentación: aparecer en el aire
 		// y esperar 200 ms a que los motores suban no es jugable.
@@ -266,7 +261,7 @@ export class Quad {
 			for ( let n = 0; n < 1500; n ++ ) {
 
 				const torque = motor.update( throttle, prop.rpm, volts, packR, false );
-				prop.update( dt, 0, 0, 1, 1 );
+				prop.update( dt, 0, 0, 1 );
 				prop.spin( dt, torque, this.rotorInertia );
 
 			}
@@ -298,7 +293,7 @@ export class Quad {
 			for ( let n = 0; n < 1500; n ++ ) {
 
 				const t = motor.update( throttle, probe.rpm, volts, packR, false );
-				probe.update( dt, 0, 0, 1, 1 );
+				probe.update( dt, 0, 0, 1 );
 				probe.spin( dt, t, this.rotorInertia );
 
 			}
@@ -419,16 +414,10 @@ export class Quad {
 
 		if ( this.crashed ) this.bf.motor.fill( 0 );
 
-		// --- Estela retrasada: al girar rápido la estela no sigue al rotor ---
-		// Ese desalineamiento es el propwash: el rotor se sale de su propio chorro,
-		// deja de restarle ángulo de ataque y el empuje pega un tirón. `propwash`
-		// gradúa cuánto se nota; a 0 la estela sigue al rotor siempre y el
-		// fenómeno desaparece limpiamente, sin dejar un resto de transitorio.
-		this._smoothed.slerp( body.quaternion, Math.min( 1, dt * 35 ) );
-		_down.set( 0, - 1, 0 ).applyQuaternion( body.quaternion );
-		_downSmooth.set( 0, - 1, 0 ).applyQuaternion( this._smoothed );
-		const wake = clamp( _down.dot( _downSmooth ), 0, 1 );
-		const tiltFactor = 1 - this.params.prop.propwash * ( 1 - wake );
+		// Aquí vivía la estela retrasada: al girar rápido el rotor se salía de su
+		// propio chorro y el empuje pegaba un tirón. Se quitó por decisión del
+		// dueño tras medirla —2,4 % del peso en el pico, y no era la turbulencia
+		// que se estaba buscando—. La estela sigue ahora siempre al rotor.
 
 		const groundGain = this.groundEffect();
 
@@ -462,7 +451,7 @@ export class Quad {
 			for ( let s = 0; s < ROTOR_SUBSTEPS; s ++ ) {
 
 				const torque = motor.update( this.bf.motor[ i ], prop.rpm, volts, packR, cutoff );
-				prop.update( rotorDt, axialV, lateralV, tiltFactor, groundGain );
+				prop.update( rotorDt, axialV, lateralV, groundGain );
 				prop.spin( rotorDt, torque, this.rotorInertia );
 
 			}

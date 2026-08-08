@@ -111,10 +111,9 @@ export class Prop {
 	 * @param {number} dt
 	 * @param {number} axialV     componente del aire a lo largo del eje del rotor (>0 = ascenso)
 	 * @param {number} lateralV   módulo de la componente transversal
-	 * @param {number} tiltFactor 0..1, alineación entre el eje real y el suavizado
 	 * @param {number} groundGain multiplicador por efecto suelo (1 = sin efecto)
 	 */
-	update( dt, axialV, lateralV, tiltFactor, groundGain ) {
+	update( dt, axialV, lateralV, groundGain ) {
 
 		const cfg = this.cfg;
 		const omega = this.omega;
@@ -128,7 +127,7 @@ export class Prop {
 		let alpha = this.pitchAngle;
 		if ( bladeSpeed > 0.05 ) {
 
-			const inflow = axialV + this.downwash * tiltFactor * cfg.washFactor + this._vrsWash;
+			const inflow = axialV + this.downwash * cfg.washFactor + this._vrsWash;
 			alpha = this.pitchAngle - inflow / bladeSpeed;
 
 		}

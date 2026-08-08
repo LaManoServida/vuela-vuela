@@ -289,7 +289,7 @@ console.log( '\n== hélice: elemento de pala + cantidad de movimiento ==' );
 	const settle = ( rpm, axial = 0, lateral = 0 ) => {
 		prop.reset();
 		const w = rpm * Math.PI / 30;
-		for ( let i = 0; i < 4000; i ++ ) { prop.omega = w; prop.update( 0.0005, axial, lateral, 1, 1 ); }
+		for ( let i = 0; i < 4000; i ++ ) { prop.omega = w; prop.update( 0.0005, axial, lateral, 1 ); }
 		return prop.thrust;
 	};
 
@@ -316,7 +316,7 @@ console.log( '\n== hélice: elemento de pala + cantidad de movimiento ==' );
 	const caer = ( rpm, axial ) => {
 		propVrs.reset();
 		const w = rpm * Math.PI / 30;
-		for ( let i = 0; i < 4000; i ++ ) { propVrs.omega = w; propVrs.update( 0.0005, axial, 0, 1, 1 ); }
+		for ( let i = 0; i < 4000; i ++ ) { propVrs.omega = w; propVrs.update( 0.0005, axial, 0, 1 ); }
 		return propVrs.thrust;
 	};
 
@@ -355,7 +355,7 @@ console.log( '\n== hélice: elemento de pala + cantidad de movimiento ==' );
 	// Rendimiento del rotor: un valor fuera de 0.4–0.8 no es una hélice.
 	prop.reset();
 	const w = 20000 * Math.PI / 30;
-	for ( let i = 0; i < 4000; i ++ ) { prop.omega = w; prop.update( 0.0005, 0, 0, 1, 1 ); }
+	for ( let i = 0; i < 4000; i ++ ) { prop.omega = w; prop.update( 0.0005, 0, 0, 1 ); }
 	const ideal = prop.thrust * Math.sqrt( prop.thrust / ( 2 * 1.225 * prop.discArea ) );
 	const merit = ideal / ( prop.torque * w );
 	check( 'la figura de mérito es la de una hélice real', between( merit, 0.40, 0.80 ),
