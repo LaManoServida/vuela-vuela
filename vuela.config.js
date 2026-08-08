@@ -259,7 +259,20 @@ export default {
 			washRate: 20,                      // 1/s del paso bajo del downwash
 			translationalRelief: 80,
 
-			// Anillo de vórtices.
+			// Anillo de vórtices: caer sobre la propia estela y quedarse sin
+			// empuje. Apagado a propósito.
+			//
+			// Es el único fenómeno del modelo que deja al piloto sin salida. Con
+			// él, cayendo entre 5 y 9 m/s el empuje se queda por debajo del peso
+			// aunque metas el 35 % de gas —0.88 del peso en lo peor— y no lo
+			// recuperas hasta los 12 m/s de caída. Sumado a que el punto de
+			// sustentación es inestable hacia abajo, el dron se cuela solo en esa
+			// banda y desde dentro el gas parece no hacer nada, con el temblor de
+			// 3,5 Hz encima. Sin él el empuje pasa de 0.88 a 1.13 del peso en el
+			// mismo punto: siempre hay salida.
+			//
+			// A true vuelve todo, incluido el aviso del OSD.
+			vortexRing: false,
 			vrsGain: 0.95,                     // recirculación en el pico, en unidades de vi
 			vrsBuffet: 0.22,                   // amplitud del temblor
 			vrsBuffetHz: 3.5,
