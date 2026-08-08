@@ -5,7 +5,7 @@
 import { Scene, Vector3, Group, Mesh, BufferGeometry, BufferAttribute } from 'three';
 import { createDemoWorld } from '../src/demoWorld.js';
 import { buildCollisionGrid } from '../src/voxels.js';
-import { collectSurfaceCells } from '../src/gridView.js';
+import { collectSurfaceCells, createGridView } from '../src/gridView.js';
 import { Quad } from '../src/flight/quad.js';
 import { cloneFlight, quadOptions } from '../src/config.js';
 
@@ -353,6 +353,46 @@ console.log( '\n== la ventana que dibuja la vista de la rejilla ==' );
 	const corto = new Float32Array( 10 * 3 );
 	const recortadas = collectSurfaceCells( grid, center, RADIUS, corto );
 	check( 'nunca desborda el buffer', recortadas === 10, `${ recortadas } cubos en hueco para 10` );
+}
+
+console.log( '\n== la vista se rehace sólo cuando toca ==' );
+{
+	// Un `InstancedMesh` se construye sin GPU, así que la cadencia —que es lo que
+	// decide si esto puede penalizar el rendimiento— se prueba aquí y no volando.
+	// El testigo de que ha habido reconstrucción es la versión del buffer de
+	// instancias: sólo sube cuando se reescriben las matrices.
+	const sala = new Scene();
+	const vista = createGridView( {
+		grid,
+		scene: sala,
+		config: { gridRadius: 20, gridRefresh: 0.05 },
+	} );
+
+	check( 'apagada no monta nada', sala.children.length === 0 );
+
+	vista.setVisible( true );
+	const mesh = sala.children[ 0 ];
+	check( 'encendida monta la malla', !! mesh );
+
+	const aqui = new Vector3( 30, grid.min.y + 30, 30 );
+	vista.update( aqui );
+	check( 'la primera vez dibuja', mesh.count > 0, `${ mesh.count } cubos` );
+
+	const version = mesh.instanceMatrix.version;
+	vista.update( aqui );
+	check( 'sin moverse no rehace nada', mesh.instanceMatrix.version === version );
+
+	// Cambiar de celda no basta: manda el reloj.
+	const alla = aqui.clone().addScaledVector( new Vector3( 1, 0, 0 ), grid.voxelSize * 3 );
+	vista.update( alla );
+	check( 'cambiar de celda antes de tiempo tampoco', mesh.instanceMatrix.version === version );
+
+	await new Promise( r => setTimeout( r, 80 ) );
+	vista.update( alla );
+	check( 'pasado gridRefresh sí rehace', mesh.instanceMatrix.version > version );
+
+	vista.setVisible( false );
+	check( 'apagarla la quita de la escena', sala.children.length === 0 );
 }
 
 demo.dispose();

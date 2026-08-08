@@ -128,6 +128,7 @@ export const SCHEMA = block( {
 	// El tope no es estético: la ventana crece con el cubo del radio, y a 200 m
 	// con vóxeles finos se pasa del tope de cubos y la vista sale recortada.
 	gridRadius: num( 5, 200 ),
+	gridRefresh: num( 0, 10 ),
 	restitution: num( 0, 1 ),          // coeficiente de restitución, por definición
 	friction: num( 0 ),
 	maxSpin: num( 0 ),

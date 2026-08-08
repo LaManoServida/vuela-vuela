@@ -118,6 +118,7 @@ export function createGridView( { grid, scene, config } ) {
 	if ( ! grid ) return null;
 
 	const radius = config.gridRadius;
+	const period = config.gridRefresh * 1000;
 	const side = Math.ceil( radius / grid.voxelSize ) * 2 + 1;
 	const capacity = Math.min( MAX_CUBES, side * side * side );
 
@@ -128,6 +129,7 @@ export function createGridView( { grid, scene, config } ) {
 
 	// Celda ocupada en la última reconstrucción. `NaN` fuerza la primera.
 	let lastX = NaN, lastY = NaN, lastZ = NaN;
+	let lastBuild = - Infinity;
 
 	function build() {
 
@@ -151,6 +153,7 @@ export function createGridView( { grid, scene, config } ) {
 		scene.add( mesh );
 
 		lastX = lastY = lastZ = NaN;
+		lastBuild = - Infinity;
 
 	}
 
@@ -169,7 +172,21 @@ export function createGridView( { grid, scene, config } ) {
 
 	return {
 
-		/** Reconstruye la ventana si el dron ha cambiado de celda. */
+		/**
+		 * Reconstruye la ventana, como mucho una vez cada `gridRefresh` y sólo si
+		 * el dron ha cambiado de celda.
+		 *
+		 * Las dos condiciones hacen cosas distintas. La celda evita reconstruir lo
+		 * mismo: parado no se toca nada nunca. El reloj limita la frecuencia en
+		 * movimiento, que es lo que reparte el coste — aunque no lo reduce: el
+		 * frame que reconstruye cuesta igual, sólo llega diez veces menos a menudo.
+		 *
+		 * Lo que se paga a cambio es que la ventana deja de estar centrada en el
+		 * dron entre reconstrucciones: a 20 m/s se descentra 20 m en un segundo, y
+		 * lo que se ve por delante encoge de 50 a 30 m antes de dar el salto. Para
+		 * mirar contra qué se choca —parado o despacio, que es cuando se usa esto—
+		 * no importa; a toda velocidad se nota el salto.
+		 */
 		update( position ) {
 
 			if ( ! visible ) return;
@@ -180,7 +197,12 @@ export function createGridView( { grid, scene, config } ) {
 			const iz = Math.floor( ( position.z - grid.min.z ) / size );
 
 			if ( ix === lastX && iy === lastY && iz === lastZ ) return;
+
+			const now = performance.now();
+			if ( now - lastBuild < period ) return;
+
 			lastX = ix; lastY = iy; lastZ = iz;
+			lastBuild = now;
 
 			const n = collectSurfaceCells( grid, position, radius, cells );
 

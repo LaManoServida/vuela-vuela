@@ -452,8 +452,8 @@ function frame( now ) {
 	drone.update( frameMs / 1000, controls );
 	drone.applyToCamera( camera, config.camTilt );
 
-	// Apagada sale por la primera línea; encendida sólo reconstruye al cambiar de
-	// celda. Va después de mover el dron para que la ventana no vaya un frame por detrás.
+	// Apagada sale por la primera línea; encendida reconstruye como mucho una vez
+	// por segundo. Va después de mover el dron para que la ventana no vaya un frame por detrás.
 	world.gridView?.update( drone.position );
 
 	// La cúpula del cielo viaja con la cámara: siempre a distancia infinita.

@@ -61,6 +61,7 @@ export default {
 	// se está chocando de verdad. Se enciende y se apaga en la pausa, sin aterrizar.
 	showGrid: false,
 	gridRadius: 50,            // m, hasta dónde llega la vista de la rejilla
+	gridRefresh: 1.0,          // s entre reconstrucciones de la ventana (0 = al cambiar de celda)
 
 	// Qué pasa al chocar. Ninguno de los cinco tiene deslizador en el menú: se
 	// tocan aquí, con el juego cerrado.
