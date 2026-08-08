@@ -266,6 +266,12 @@ export default {
 			washRate: 20,                      // 1/s del paso bajo del downwash
 			translationalRelief: 80,
 
+			// Propwash: al dar un golpe de stick la estela no gira con el rotor, el
+			// rotor se sale de su propio chorro y el empuje pega un tirón. Es lo que
+			// se siente como turbulencia al maniobrar brusco. 1 = el fenómeno
+			// completo, 0 = la estela sigue al rotor siempre y no hay tirón.
+			propwash: 1.0,
+
 			// Anillo de vórtices: caer sobre la propia estela y quedarse sin
 			// empuje. Apagado a propósito.
 			//
@@ -436,6 +442,7 @@ export default {
 		motorCurrent:  { path: 'flight.motor.currentLimit', min: 10, max: 60, step: 1 },
 		propDiameter:  { path: 'flight.prop.diameterIn', min: 2, max: 7, step: 0.1 },
 		propPitch:     { path: 'flight.prop.pitchIn', min: 2, max: 7, step: 0.1 },
+		propwash:      { path: 'flight.prop.propwash', min: 0, max: 1, step: 0.05 },
 		batteryCells:  { path: 'flight.battery.cells', min: 2, max: 8, step: 1 },
 	},
 

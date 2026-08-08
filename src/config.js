@@ -204,6 +204,7 @@ export const SCHEMA = block( {
 			inducedPowerFactor: pos(),
 			washFactor: num( 0 ),
 			washRate: num( 0 ),
+			propwash: num( 0, 1 ),             // 0 apaga el tirón de estela por completo
 			translationalRelief: num( 0 ),
 			vortexRing: bool(),
 			vrsGain: num( 0 ),

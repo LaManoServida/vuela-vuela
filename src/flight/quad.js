@@ -384,10 +384,15 @@ export class Quad {
 		if ( this.crashed ) this.bf.motor.fill( 0 );
 
 		// --- Estela retrasada: al girar rápido la estela no sigue al rotor ---
+		// Ese desalineamiento es el propwash: el rotor se sale de su propio chorro,
+		// deja de restarle ángulo de ataque y el empuje pega un tirón. `propwash`
+		// gradúa cuánto se nota; a 0 la estela sigue al rotor siempre y el
+		// fenómeno desaparece limpiamente, sin dejar un resto de transitorio.
 		this._smoothed.slerp( body.quaternion, Math.min( 1, dt * 35 ) );
 		_down.set( 0, - 1, 0 ).applyQuaternion( body.quaternion );
 		_downSmooth.set( 0, - 1, 0 ).applyQuaternion( this._smoothed );
-		const tiltFactor = clamp( _down.dot( _downSmooth ), 0, 1 );
+		const wake = clamp( _down.dot( _downSmooth ), 0, 1 );
+		const tiltFactor = 1 - this.params.prop.propwash * ( 1 - wake );
 
 		const groundGain = this.groundEffect();
 

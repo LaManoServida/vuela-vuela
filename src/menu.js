@@ -572,6 +572,19 @@ export function buildPauseSettings( container, config, onChange ) {
 			nestedSlider( 'Límite de inclinación (angle)', bf, 'angleLimit', {
 				...ui.angleLimit, format: v => `${ v }°`, onChange, notify: 'mode',
 			} ),
+			nestedSlider( 'Propwash', config.flight.prop, 'propwash', {
+				...ui.propwash,
+				format: v => v === 0 ? 'sin turbulencia' : `${ Math.round( v * 100 ) } %`,
+				onChange, notify: 'propwash',
+			} ),
+			// La masa también está en el menú principal, pero ahí obliga a recargar
+			// la zona para probarla. Aquí se nota al reanudar: `refresh()` rehace lo
+			// que dependía de ella sin tocar posición ni velocidad.
+			nestedSlider( 'Masa con batería', config.flight.frame, 'mass', {
+				...ui.mass,
+				format: v => `${ ( v * 1000 ).toFixed( 0 ) } g`,
+				onChange, notify: 'hardware',
+			} ),
 		] ),
 		rateNote,
 		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
