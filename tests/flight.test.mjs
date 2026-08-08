@@ -523,6 +523,93 @@ console.log( '\n== coste ==' );
 		perSecond < 15, `${ perSecond.toFixed( 2 ) } ms/s (${ perStep.toFixed( 2 ) } µs por paso a 1 kHz)` );
 }
 
+console.log( '\n== mover el gas no puede desestabilizar el dron ==' );
+{
+	/*
+	 * Volando recto y tocando SÓLO el gas —arriba y seguido abajo— el dron se iba
+	 * en una revuelta de varios cientos de °/s y acababa decenas de grados girado.
+	 * La causa era el anti-gravity: sumaba a la ganancia I un término proporcional
+	 * a la velocidad del gas y sin techo, así que la I se clavaba en su tope y
+	 * cualquier desvío mínimo —en un mando siempre lo hay— se amplificaba sin
+	 * control. Pasó a ser un multiplicador acotado.
+	 *
+	 * Lo que se fija aquí es la propiedad, no el número: un desvío pequeño se
+	 * amortigua igual de bien con el gas quieto que moviéndolo. Y se prueba a
+	 * varias velocidades de gas porque el fallo crecía justo con eso.
+	 */
+	const maniobra = ( rampaMs, gain ) => {
+
+		const drone = makeQuad( p => { p.bf.antiGravityGain = gain; } );
+		drone.setSpawn( 0, 800, 0 );
+
+		const gas = t => ( { roll: 0, pitch: 0, yaw: 0, throttle: t } );
+		const paso = ( c, ms ) => { for ( let i = 0; i < ms; i ++ ) drone.step( 0.001, c ); };
+		const rampa = ( de, a, ms ) => {
+			for ( let i = 0; i < ms; i ++ ) paso( gas( de + ( a - de ) * ( i + 1 ) / ms ), 1 );
+		};
+
+		// Vuelo recto: picar el morro y soltar. En acro se queda picado y acelera.
+		paso( { roll: 0, pitch: - 0.45, yaw: 0, throttle: 0.55 }, 400 );
+		paso( gas( 0.72 ), 2500 );
+
+		// El desvío que siempre hay en un mando de verdad. Sin él el equilibrio es
+		// perfectamente simétrico y no hay nada que amplificar: no se vería nada.
+		drone.body.omega.z += 0.05;
+
+		if ( rampaMs > 0 ) {
+
+			rampa( 0.72, 1, rampaMs ); paso( gas( 1 ), 100 );
+			rampa( 1, 0, rampaMs );    paso( gas( 0 ), 100 );
+			rampa( 0, 0.72, rampaMs );
+
+		} else {
+
+			paso( gas( 0.72 ), 2 * rampaMs + 200 );
+
+		}
+
+		let peor = 0;
+		for ( let i = 0; i < 3000; i ++ ) {
+
+			paso( gas( 0.72 ), 1 );
+			peor = Math.max( peor, drone.body.omega.length() );
+
+		}
+
+		return peor;
+
+	};
+
+	// Referencia: el mismo desvío sin tocar el gas. El controlador lo mata.
+	const quieto = maniobra( 0, 3.5 );
+	check( 'con el gas quieto el desvío se amortigua', quieto < 0.05, `|w| máx ${ quieto.toFixed( 3 ) } rad/s` );
+
+	for ( const ms of [ 20, 100, 400 ] ) {
+
+		const peor = maniobra( ms, 3.5 );
+		check( `mover el gas en ${ ms } ms tampoco lo excita`, peor < 0.05, `|w| máx ${ peor.toFixed( 3 ) } rad/s` );
+
+	}
+
+	// Y el anti-gravity sigue acelerando la I: acotado no quiere decir apagado.
+	const conI = gain => {
+
+		const bf = new Betaflight( { ...cloneFlight().bf, antiGravityGain: gain }, QUAD_X );
+		const gyro = new Float32Array( [ 3, 0, 0 ] );
+		for ( let i = 0; i < 500; i ++ ) bf.update( 0.001, { roll: 0, pitch: 0, yaw: 0, throttle: 0.5 }, gyro );
+		const antes = bf.I[ ROLL ];
+		for ( let i = 0; i < 100; i ++ ) bf.update( 0.001, { roll: 0, pitch: 0, yaw: 0, throttle: 0.5 + 0.5 * ( i + 1 ) / 100 }, gyro );
+		return Math.abs( bf.I[ ROLL ] - antes );
+
+	};
+
+	const sinAg = conI( 0 ), conAg = conI( 3.5 );
+	check( 'el anti-gravity sigue acelerando la I', conAg > sinAg * 2,
+		`${ conAg.toFixed( 2 ) } frente a ${ sinAg.toFixed( 2 ) } sin él` );
+	check( 'pero acotado: no puede multiplicarla por cien', conAg < sinAg * ( 1 + 3.5 ) * 1.05,
+		`×${ ( conAg / sinAg ).toFixed( 2 ) }, tope ×${ ( 1 + 3.5 ).toFixed( 1 ) }` );
+}
+
 console.log( '\n== la cámara no baila con el paso fijo ==' );
 {
 	// La física va a 1 kHz y un frame no dura un número entero de milisegundos:

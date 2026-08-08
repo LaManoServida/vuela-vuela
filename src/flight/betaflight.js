@@ -21,7 +21,10 @@ const DTERM_SCALE = 0.000529;
 const FEEDFORWARD_SCALE = 0.013754;
 const PID_MIXER_SCALING = 1000;
 const ITERM_LIMIT = 400;
-const AG_KI = 21.586988;
+// Velocidad de gas a la que el anti-gravity llega a su tope: barrer el stick
+// entero en 100 ms. Por encima no sigue creciendo — un techo es justo lo que le
+// faltaba.
+const AG_FULL_RATE = 10;
 
 // D-min (pid.c)
 const D_MIN_GAIN_FACTOR = 0.00008;
@@ -254,8 +257,23 @@ export class Betaflight {
 		const throttleD = Math.abs( throttle - this._prevThrottle ) * pidFreq;
 		this._prevThrottle = throttle;
 		this._agLpf += ( throttleD - this._agLpf ) * pt1Alpha( dt, cfg.antiGravityCutoffHz );
-		const itermAccelerator = cfg.antiGravityGain * this._agLpf;
-		const agBoost = dt * itermAccelerator * AG_KI;
+
+		// El acelerador es un MULTIPLICADOR ACOTADO de la ganancia I, no un sumando
+		// proporcional a la velocidad del gas.
+		//
+		// Sumándolo, la I subía ×7,9 barriendo el gas en un segundo, ×70 en 100 ms
+		// y ×269 en un golpe seco, sin techo: siempre había un movimiento de gas
+		// bastante rápido como para clavar la I en `ITERM_LIMIT`. A partir de ahí
+		// cualquier desvío infinitesimal —y en un mando siempre lo hay— se
+		// convertía en una revuelta de varios cientos de °/s que dejaba el dron
+		// decenas de grados girado. Se veía siempre, y no dependía del tamaño del
+		// desvío: la saturación borra esa diferencia.
+		//
+		// Acotado, la I sube como mucho `antiGravityGain` veces, que es lo que el
+		// término significa: ayudar a la I a seguir el peso aparente mientras el
+		// gas cambia, no sustituir al controlador.
+		const agActivity = Math.min( 1, this._agLpf / AG_FULL_RATE );
+		const itermAccelerator = 1 + cfg.antiGravityGain * agActivity;
 
 		this.levelMode = cfg.mode === 'angle' ? 'angle' : cfg.mode === 'horizon' ? 'horizon' : 'off';
 
@@ -307,7 +325,7 @@ export class Betaflight {
 
 			// ---- I ----
 			const Ki = ITERM_SCALE * gains.i;
-			const iTerm = this.I[ axis ] + ( Ki * dt + agBoost ) * relaxedError;
+			const iTerm = this.I[ axis ] + Ki * itermAccelerator * dt * relaxedError;
 			this.I[ axis ] = clamp( iTerm, - ITERM_LIMIT, ITERM_LIMIT );
 
 			// ---- D (sobre la medida, no sobre el error: evita el "D-kick") ----
