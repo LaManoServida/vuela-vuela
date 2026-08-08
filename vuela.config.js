@@ -120,7 +120,16 @@ export default {
 		hint: 'Gemfan 5146 · 4S 1300',
 
 		frame: {
-			mass: 0.601,                       // kg con batería
+			// 353 g de aparato (ficha del Oblivion) + 176 g del pack: la batería
+			// es un componente aparte en la base de datos de Velocidrone, con su
+			// peso propio, así que la ficha no lo incluye.
+			//
+			// Que son 529 y no 353 lo confirma la inercia que declara el propio
+			// Velocidrone: con moi = 0.004 kg·m², un aparato de 353 g exigiría que
+			// su masa central tuviera un radio de giro de 119 mm —más largo que el
+			// brazo entero, 110— y eso no lo cumple ningún cuerpo compacto. Con
+			// 529 g salen 89 mm, que sí.
+			mass: 0.529,                       // kg con batería
 
 			// Tensor de inercia en ejes de cuerpo (x=cabeceo, y=guiñada, z=alabeo).
 			//
