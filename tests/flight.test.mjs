@@ -6,6 +6,7 @@
  * verdad. Si el empuje por motor, el gas de sustentación o las RPM se salen del
  * rango, el modelo ha dejado de representar un dron aunque siga volando.
  */
+import { Vector3, Quaternion } from 'three';
 import { Quad } from '../src/flight/quad.js';
 import { cloneFlight, quadOptions } from '../src/config.js';
 import { Betaflight, QUAD_X, ROLL, PITCH, YAW } from '../src/flight/betaflight.js';
@@ -520,6 +521,69 @@ console.log( '\n== coste ==' );
 
 	check( 'el modelo completo cuesta menos de 15 ms por segundo simulado',
 		perSecond < 15, `${ perSecond.toFixed( 2 ) } ms/s (${ perStep.toFixed( 2 ) } µs por paso a 1 kHz)` );
+}
+
+console.log( '\n== la cámara no baila con el paso fijo ==' );
+{
+	// La física va a 1 kHz y un frame no dura un número entero de milisegundos:
+	// a 60 fps entran 16 o 17 subpasos según el resto que quede en el acumulador.
+	// Si la cámara pinta el estado crudo, cada frame avanza 16 o 17 ms de golpe y
+	// eso es 1 ms de baile —0,8° a 800 °/s—, que se ve como un temblor que aparece
+	// justo al girar rápido. La cura es interpolar por el resto del acumulador.
+	// Dispersión relativa del giro de un frame al siguiente.
+	const cv = v => {
+		const m = v.reduce( ( a, b ) => a + b, 0 ) / v.length;
+		return Math.sqrt( v.reduce( ( a, b ) => a + ( b - m ) ** 2, 0 ) / v.length ) / m;
+	};
+
+	/** Alabea a fondo a `fps` y devuelve la dispersión del estado crudo y de la cámara. */
+	const medir = fps => {
+
+		const drone = makeQuad();
+		drone.setSpawn( 0, 100, 0 );
+
+		const camera = { position: new Vector3(), quaternion: new Quaternion() };
+		const stick = { roll: 1, pitch: 0, yaw: 0, throttle: drone.hoverThrottle };
+		const frame = 1 / fps;
+
+		// Que el alabeo llegue a régimen: se mide el paso entre frames, no la
+		// aceleración inicial.
+		for ( let i = 0; i < 60; i ++ ) drone.update( frame, stick );
+
+		const crudo = [], pintado = [];
+		let qCrudo = drone.quaternion.clone();
+		drone.applyToCamera( camera, 0 );
+		let qPintado = camera.quaternion.clone();
+
+		for ( let i = 0; i < 120; i ++ ) {
+
+			drone.update( frame, stick );
+			drone.applyToCamera( camera, 0 );
+
+			crudo.push( qCrudo.angleTo( drone.quaternion ) );
+			pintado.push( qPintado.angleTo( camera.quaternion ) );
+			qCrudo = drone.quaternion.clone();
+			qPintado = camera.quaternion.clone();
+
+		}
+
+		return { crudo: cv( crudo ), pintado: cv( pintado ) };
+
+	};
+
+	// 62,5 fps son 16 ms justos: 16 subpasos exactos, cero aliasing. Lo que
+	// disperse ahí es la dinámica real del dron —el alabeo a fondo no es
+	// perfectamente uniforme— y es el suelo contra el que hay que comparar. Sin
+	// esta referencia, cualquier umbral fijo sería inventado.
+	const suelo = medir( 62.5 ).crudo;
+	const { crudo, pintado } = medir( 60 );   // 16 o 17 subpasos según el resto
+
+	check( 'a 62,5 fps no hay nada que corregir', Math.abs( medir( 62.5 ).pintado - suelo ) < 1e-9,
+		`${ ( suelo * 100 ).toFixed( 2 ) } % de dinámica real` );
+	check( 'el paso fijo hace bailar el estado crudo', crudo > suelo * 2,
+		`${ ( crudo * 100 ).toFixed( 2 ) } % frente al ${ ( suelo * 100 ).toFixed( 2 ) } % del suelo` );
+	check( 'la cámara interpolada vuelve al suelo', pintado < suelo * 1.25,
+		`${ ( pintado * 100 ).toFixed( 2 ) } % frente al ${ ( suelo * 100 ).toFixed( 2 ) } % del suelo` );
 }
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );

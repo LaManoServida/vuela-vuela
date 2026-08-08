@@ -36,6 +36,7 @@ const _cross = new Vector3();
 const _angImp = new Vector3();
 const _q = new Quaternion();
 const _qi = new Quaternion();
+const _qRender = new Quaternion();
 const _euler = new Euler( 0, 0, 0, 'YXZ' );
 const _probe = new Vector3();
 const _down = new Vector3();
@@ -127,6 +128,12 @@ export class Quad {
 
 		this._smoothed = new Quaternion();
 		this._accumulator = 0;
+
+		// Estado del subpaso anterior y fracción pendiente, para interpolar lo que
+		// se pinta. Ver `update()`.
+		this._prevPosition = new Vector3();
+		this._prevQuaternion = new Quaternion();
+		this._alpha = 0;
 		this._attitude = { roll: 0, pitch: 0, yaw: 0, inverted: false };
 
 		this.hoverMotor = 0.35;        // mando de motor que sostiene el peso
@@ -156,6 +163,7 @@ export class Quad {
 
 		this._smoothed.identity();
 		this._accumulator = 0;
+		this.syncRender();
 
 		this.crashed = false;
 		this.crashSpeed = 0;
@@ -225,6 +233,21 @@ export class Quad {
 		// Rotores ya girando a la velocidad de sustentación: aparecer en el aire
 		// y esperar 200 ms a que los motores suban no es jugable.
 		this.primeRotors( this.hoverMotor );
+
+		this.syncRender();
+
+	}
+
+	/**
+	 * Pega el estado interpolado al real. Hay que llamarla después de mover el
+	 * aparato a mano: si no, el primer frame tras reaparecer interpola desde
+	 * donde estaba antes y la cámara hace un barrido desde el punto del choque.
+	 */
+	syncRender() {
+
+		this._prevPosition.copy( this.body.position );
+		this._prevQuaternion.copy( this.body.quaternion );
+		this._alpha = 0;
 
 	}
 
@@ -328,6 +351,9 @@ export class Quad {
 		let steps = 0;
 		while ( this._accumulator >= PHYSICS_DT && steps < MAX_SUBSTEPS ) {
 
+			this._prevPosition.copy( this.body.position );
+			this._prevQuaternion.copy( this.body.quaternion );
+
 			this.step( PHYSICS_DT, controls );
 			this._accumulator -= PHYSICS_DT;
 			steps ++;
@@ -335,6 +361,16 @@ export class Quad {
 		}
 
 		if ( steps === MAX_SUBSTEPS ) this._accumulator = 0;
+
+		// Un frame no dura un número entero de milisegundos, así que el acumulador
+		// deja siempre un resto: a 60 fps entran 16 subpasos o 17 según lo que
+		// sobrara del frame anterior. Pintar el estado crudo hace que la imagen
+		// avance 16 ms de golpe y luego 17, y ese milisegundo de baile son 0,8° a
+		// 800 °/s. Despacio no se ve; girando rápido es un temblor que parece
+		// turbulencia y no lo es —el modelo no oscila—, sólo aliasing del paso
+		// fijo. Guardando la fracción pendiente, `applyToCamera` interpola y la
+		// imagen avanza lo mismo en cada frame por muchos subpasos que hayan sido.
+		this._alpha = this._accumulator / PHYSICS_DT;
 
 	}
 
@@ -702,9 +738,10 @@ export class Quad {
 
 	applyToCamera( camera, tiltDeg ) {
 
-		camera.position.copy( this.body.position );
+		camera.position.lerpVectors( this._prevPosition, this.body.position, this._alpha );
+		_qRender.copy( this._prevQuaternion ).slerp( this.body.quaternion, this._alpha );
 		_q.setFromAxisAngle( _v1.set( 1, 0, 0 ), tiltDeg * DEG2RAD );
-		camera.quaternion.copy( this.body.quaternion ).multiply( _q );
+		camera.quaternion.copy( _qRender ).multiply( _q );
 
 	}
 
