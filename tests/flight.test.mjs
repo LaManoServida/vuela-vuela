@@ -120,7 +120,13 @@ console.log( '\n== prestaciones frente a un 5" real ==' );
 		`${ gramsPerMotor.toFixed( 0 ) } g` );
 	check( 'relación empuje/peso entre 3.5 y 6', between( q.thrustToWeight, 3.5, 6 ),
 		`${ q.thrustToWeight.toFixed( 2 ) }:1` );
-	check( 'gas de sustentación entre 25 y 40 %', between( q.hoverThrottle, 0.25, 0.40 ),
+	// Con un variador de lazo abierto el empuje va con el CUADRADO del ciclo de
+	// trabajo, así que el gas de sustentación sale en 1/√(empuje/peso) —aquí
+	// 1/√5.86 = 41 %, y la curva del variador lo deja en 45—. Antes daba 35 %
+	// porque el regulador de velocidad que estrangulaba el variador enderezaba esa
+	// curva; era el apaño, no el aparato. La banda describe ahora la relación
+	// física: un quad con más empuje/peso sustenta con menos gas y al revés.
+	check( 'gas de sustentación entre 30 y 50 %', between( q.hoverThrottle, 0.30, 0.50 ),
 		`${ ( q.hoverThrottle * 100 ).toFixed( 1 ) } %` );
 	check( 'RPM de sustentación entre 7000 y 12000', between( q.hoverRpm, 7000, 12000 ),
 		`${ q.hoverRpm.toFixed( 0 ) } RPM` );
@@ -182,7 +188,10 @@ console.log( '\n== sustentación y respuesta ==' );
 		`pico ${ peak.toFixed( 0 ) } de ${ target.toFixed( 0 ) } °/s` );
 	check( 'y llega en menos de 100 ms', t90 > 0 && t90 < 100, `${ t90 } ms al 90 %` );
 
-	// Los motores tardan en subir: es lo que da el "peso" al gas.
+	// Los motores tardan en subir: es lo que da el "peso" al gas. El suelo de la
+	// banda bajó de 40 a 25 ms al quitar el regulador que estrangulaba el
+	// variador: con todo el ciclo de trabajo disponible los rotores suben
+	// antes, y eso es justamente lo que quita el rebote al soltar el stick.
 	const u = makeQuad();
 	u.reset();
 	let ms = 0;
@@ -191,7 +200,7 @@ console.log( '\n== sustentación y respuesta ==' );
 		u.step( 0.001, { roll: 0, pitch: 0, yaw: 0, throttle: u.hoverThrottle } );
 		ms ++;
 	}
-	check( 'los rotores tardan entre 40 y 250 ms en subir', between( ms, 40, 250 ), `${ ms } ms` );
+	check( 'los rotores tardan entre 25 y 250 ms en subir', between( ms, 25, 250 ), `${ ms } ms` );
 }
 
 // ---------------------------------------------------------------------------

@@ -181,8 +181,22 @@ export default {
 		// unos 30 A. Son de un 2207. Manda la ficha, no la etiqueta: con ella
 		// salen 779 g por motor y 5,89 de empuje/peso, que es un 5" moderno.
 		motor: {
-			kv: 2500,                          // FlEqMotorKV
-			resistance: 0.04142,               // FlEqMotorR, Ω por fase
+			// No copiado. Velocidrone declara `FlEqMotorKV` 2500 y `FlEqMotorR`
+			// 0.04142, y ese par no puede dar el aparato que describe el resto de
+			// su ficha: con un variador aplicando el ciclo de trabajo entero, un
+			// 2500 KV a 4S con esta hélice se va a 33.800 RPM y 1.731 g por motor
+			// —un empuje/peso de 13, que no es un 5"—. Antes se cuadraba
+			// estrangulando el variador al 16 % de ciclo, y el precio era que las
+			// RPM tardaban un mundo en cambiar: de ahí el rebote al soltar el
+			// stick de alabeo o cabeceo.
+			//
+			// Estos dos son la única pareja que da el punto de funcionamiento del
+			// Oblivion —21.250 RPM y 775 g por motor— con el variador a fondo Y
+			// con una resistencia coherente con su propio KV (escala con 1/KV²).
+			// El aparato vuela igual en régimen; lo que cambia es que ahora tiene
+			// todo el margen de tensión disponible para los transitorios.
+			kv: 1428,
+			resistance: 0.1270,                // Ω por fase
 			noLoadCurrent: 0.7,                // FlEqMotorNoLoadCurrent
 			currentLimit: 50,                  // FlEqMotorILimit
 
@@ -210,18 +224,6 @@ export default {
 			// deshacer el cambio entero.
 			inertia: 1.8e-6,                   // kg·m², campana + imanes
 
-			// Ganancia del lazo de velocidad del variador. Es el parámetro que
-			// fija a qué RPM se estabiliza el motor con la hélice puesta: sin él
-			// un 2500 KV a 4S subiría a 41.000 RPM en vacío teórico.
-			//
-			// No copiado: Velocidrone pone 0.5 en `MSRGain`, pero eso no es un
-			// dato del motor sino la constante con la que SU modelo de variador
-			// —que además tiene rampa y límite de aceleración propios, que aquí
-			// no existen— cuadra las RPM. Metida en este modelo se lleva el gas
-			// pleno a 30.000 RPM con una 5146 en 4S, que no es un régimen real.
-			// A 0.30 quedan 21.300 RPM y 779 g por motor.
-			msrGain: 0.30,
-			rpmOffset: 2000,
 			emfFactor: 1.0,
 		},
 

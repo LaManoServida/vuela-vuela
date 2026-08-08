@@ -74,21 +74,31 @@ export class Motor {
 
 		this.backEmf = rpm / cfg.kv * cfg.emfFactor;
 
-		// Realimentación de velocidad: el variador compara las RPM con las que
-		// pide el gas y ajusta el ciclo de trabajo. Sin esto el motor sería un
-		// lazo abierto y el dron respondería como un juguete.
-		this.duty = clamp(
-			cfg.msrGain * ( drive - ( rpm - cfg.rpmOffset ) / ( cfg.kv * Math.max( packVolts, 1e-3 ) ) ),
-			- 1,
-			1,
-		);
+		// Un variador es lazo abierto: aplica el ciclo de trabajo que le pide el
+		// mando y punto. No mide las RPM ni las regula. Las vueltas a las que se
+		// estabiliza el motor salen solas del equilibrio entre el par que da y el
+		// que le pide la hélice.
+		this.duty = clamp( drive, 0, 1 );
 
-		// Frenado activo: al pedir menos vueltas de las que hay, el ESC
-		// cortocircuita las fases y el motor devuelve corriente.
-		this.driveVolts = ( esc.braking && this.duty < 0 ) ? - this.backEmf : packVolts - this.backEmf;
+		// Ecuación del motor con PWM: la tensión media aplicada es duty·V y la
+		// fuerza contraelectromotriz se le opone entera.
+		//
+		// Aquí había `|duty|·(V − backEmf)/R`, que escala la contraelectromotriz
+		// con el ciclo de trabajo: no es así, se opone siempre igual. Ese error
+		// dejaba al motor embalarse, y se compensaba con un regulador de velocidad
+		// que estrangulaba el duty al 16 % —de ahí que las RPM tardaran tanto en
+		// cambiar y que el dron rebotara al soltar el stick de alabeo o cabeceo—.
+		this.driveVolts = this.duty * packVolts - this.backEmf;
 
 		const resistance = cfg.resistance + esc.resistance + packR;
-		let current = Math.abs( this.duty ) * this.driveVolts / resistance;
+		let current = this.driveVolts / resistance;
+
+		// Corriente negativa = el motor gira más deprisa de lo que el variador le
+		// pide y devuelve energía. Con frenado activo el ESC cortocircuita las
+		// fases y ese par retiene; sin él, el motor va libre y sólo lo frena la
+		// hélice.
+		if ( current < 0 && ! esc.braking ) current = 0;
+
 		current = clamp( current, - this.currentLimit, this.currentLimit );
 
 		this.cutoff = cutoff;

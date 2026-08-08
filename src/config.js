@@ -174,8 +174,6 @@ export const SCHEMA = block( {
 			currentLimit: pos(),
 			ktEfficiency: pos( 1 ),
 			inertia: pos(),
-			msrGain: num( 0 ),
-			rpmOffset: num( 0 ),
 			emfFactor: num( 0 ),
 		} ),
 
