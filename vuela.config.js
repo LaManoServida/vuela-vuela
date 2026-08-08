@@ -135,13 +135,24 @@ export default {
 
 			// Tensor de inercia en ejes de cuerpo (x=cabeceo, y=guiñada, z=alabeo).
 			//
-			// Velocidrone lo declara simétrico (`vd_model_moi = 0.004,0.004,0.004`)
-			// y así se copia, porque es de donde sale que su guiñada entre igual
-			// de rápida que el alabeo: 27 ms contra los 48 ms que daría el
-			// reparto físico. No es lo que hace un quad de verdad —toda la masa
-			// cuenta a brazo completo en guiñada, así que Izz ≈ Ixx+Iyy ≈ 0.0072—
-			// pero es lo que hace ESTE quad en ESE simulador.
-			inertia: [ 0.004, 0.004, 0.004 ],
+			// Velocidrone da tres cifras para el mismo chasis y no dice cuál usa:
+			// `moi` 0.00175, `bf_model_moi` 0.003 y `vd_model_moi` 0.004. Va la
+			// primera, la del propio componente, por dos razones.
+			//
+			// Una: es la única que describe un cuerpo que puede existir. Descontado
+			// lo que aportan los cuatro motores a punta de brazo (7.3e-4), 0.00175
+			// deja la masa central con 50 mm de radio de giro —un pack de 4S y el
+			// stack, exactamente eso—, mientras que 0.004 exigía 89 mm.
+			//
+			// Y dos: pone la respuesta donde está la de un 5" de verdad, 24 ms al
+			// 63 % del rate en alabeo, cuando con 0.004 eran 39.
+			//
+			// Simétrico, como lo declara Velocidrone. Un quad de verdad no lo es
+			// —en guiñada toda la masa cuenta a brazo completo, así que Izz ≈
+			// Ixx+Iyy— y de ahí salen 14 ms de guiñada, más de lo que gira ningún
+			// quad. Doblando la componente del medio (0.0035) queda honesta, en
+			// unos 29 ms, a cambio de perder ese giro instantáneo.
+			inertia: [ 0.00175, 0.00175, 0.00175 ],
 
 			armRadius: 0.110,                  // m del centro al motor
 			armAngle: 45,                      // grados desde el morro
@@ -190,7 +201,7 @@ export default {
 			//
 			// O sea: 8 ms de alabeo a cambio de 7 de guiñada. Devolver 1.8e-6 es
 			// deshacer el cambio entero.
-			inertia: 1e-8,                     // kg·m², campana + imanes
+			inertia: 1.8e-6,                   // kg·m², campana + imanes
 
 			// Ganancia del lazo de velocidad del variador. Es el parámetro que
 			// fija a qué RPM se estabiliza el motor con la hélice puesta: sin él
