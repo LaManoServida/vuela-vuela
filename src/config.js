@@ -124,6 +124,10 @@ export const SCHEMA = block( {
 	// automático de `voxels.js`; 0 pide un Uint32Array de longitud Infinity.
 	voxelSize: num( 0.25, 64 ),
 	crashSpeed: num( 0 ),
+	showGrid: bool(),
+	// El tope no es estético: la ventana crece con el cubo del radio, y a 200 m
+	// con vóxeles finos se pasa del tope de cubos y la vista sale recortada.
+	gridRadius: num( 5, 200 ),
 	restitution: num( 0, 1 ),          // coeficiente de restitución, por definición
 	friction: num( 0 ),
 	maxSpin: num( 0 ),

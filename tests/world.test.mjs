@@ -5,6 +5,7 @@
 import { Scene, Vector3, Group, Mesh, BufferGeometry, BufferAttribute } from 'three';
 import { createDemoWorld } from '../src/demoWorld.js';
 import { buildCollisionGrid } from '../src/voxels.js';
+import { collectSurfaceCells } from '../src/gridView.js';
 import { Quad } from '../src/flight/quad.js';
 import { cloneFlight, quadOptions } from '../src/config.js';
 
@@ -274,6 +275,84 @@ console.log( '\n== el presupuesto de memoria no es negociable ==' );
 
 	check( 'cabe en el tope de 64 MB', g && g.bytes <= 64 * 1048576,
 		g ? `${ ( g.bytes / 1048576 ).toFixed( 0 ) } MB` : '' );
+}
+
+console.log( '\n== la ventana que dibuja la vista de la rejilla ==' );
+{
+	// La vista de depuración dibuja las celdas sólidas alrededor del dron. Lo que
+	// se prueba aquí es la selección —qué celdas entran—, que es lo único que no
+	// necesita GPU. Que se vean rojas y encajen con la fachada se verifica volando.
+	const RADIUS = 20;
+	const r = Math.ceil( RADIUS / grid.voxelSize );
+	const out = new Float32Array( 60000 * 3 );
+
+	// Un punto a media altura dentro de la ciudad, elegido para que la ventana
+	// entera caiga en índices no negativos: por debajo de `min.y` la rejilla
+	// declara sólido todo, y comparar contra eso mediría el borde, no el filtro.
+	const center = new Vector3( 30, grid.min.y + 30, 30 );
+	const n = collectSurfaceCells( grid, center, RADIUS, out );
+
+	check( 'encuentra celdas dentro de la ciudad', n > 0, `${ n } cubos` );
+
+	const size = grid.voxelSize;
+	// La celda más lejana tiene su centro a exactamente esto. La holgura es por
+	// el buffer, que es de float32: a mil metros del origen eso cuantiza a unas
+	// micras, y la última capa cae justo en el límite. Un milímetro de margen
+	// sigue estando tres órdenes por debajo de un vóxel.
+	const reach = ( r + 0.5 ) * size + 1e-3;
+	let fuera = 0, hueca = 0, maciza = 0;
+
+	for ( let i = 0; i < n; i ++ ) {
+
+		const x = out[ i * 3 ], y = out[ i * 3 + 1 ], z = out[ i * 3 + 2 ];
+
+		if ( Math.abs( x - center.x ) > reach || Math.abs( y - center.y ) > reach || Math.abs( z - center.z ) > reach ) fuera ++;
+		if ( ! grid.isSolid( x, y, z ) ) hueca ++;
+
+		// Piel: al menos una de las seis vecinas tiene que ser aire.
+		if ( grid.isSolid( x + size, y, z ) && grid.isSolid( x - size, y, z )
+			&& grid.isSolid( x, y + size, z ) && grid.isSolid( x, y - size, z )
+			&& grid.isSolid( x, y, z + size ) && grid.isSolid( x, y, z - size ) ) maciza ++;
+
+	}
+
+	check( 'ninguna celda se sale del radio', fuera === 0, `${ fuera } fuera` );
+	check( 'todas las celdas son sólidas', hueca === 0, `${ hueca } huecas` );
+	check( 'ninguna celda tiene las seis vecinas sólidas', maciza === 0, `${ maciza } macizas` );
+
+	// Y al revés: que no se deje ninguna. La cuenta de referencia se hace aquí a
+	// mano, con `isSolid` sobre coordenadas de mundo, que es el camino que usa el
+	// vuelo — si las dos rutas discreparan, la vista mentiría.
+	const cx = Math.floor( ( center.x - grid.min.x ) / size );
+	const cy = Math.floor( ( center.y - grid.min.y ) / size );
+	const cz = Math.floor( ( center.z - grid.min.z ) / size );
+	const world = ( i, axis ) => grid.min[ axis ] + ( i + 0.5 ) * size;
+
+	let esperadas = 0;
+	for ( let iy = cy - r; iy <= cy + r; iy ++ ) {
+		for ( let iz = cz - r; iz <= cz + r; iz ++ ) {
+			for ( let ix = cx - r; ix <= cx + r; ix ++ ) {
+				const x = world( ix, 'x' ), y = world( iy, 'y' ), z = world( iz, 'z' );
+				if ( ! grid.isSolid( x, y, z ) ) continue;
+				if ( grid.isSolid( x + size, y, z ) && grid.isSolid( x - size, y, z )
+					&& grid.isSolid( x, y + size, z ) && grid.isSolid( x, y - size, z )
+					&& grid.isSolid( x, y, z + size ) && grid.isSolid( x, y, z - size ) ) continue;
+				esperadas ++;
+			}
+		}
+	}
+
+	check( 'no se deja ninguna celda de la piel', n === esperadas, `${ n } de ${ esperadas }` );
+
+	// Por encima de todo no hay nada que dibujar: la rejilla deja 60 m de aire
+	// sobre la antena más alta.
+	const arriba = collectSurfaceCells( grid, new Vector3( 30, grid.max.y - 30, 30 ), RADIUS, out );
+	check( 'sobre la ciudad no dibuja nada', arriba === 0, `${ arriba } cubos` );
+
+	// El buffer manda: con sitio para 10 cubos salen 10, no 11 ni un desbordamiento.
+	const corto = new Float32Array( 10 * 3 );
+	const recortadas = collectSurfaceCells( grid, center, RADIUS, corto );
+	check( 'nunca desborda el buffer', recortadas === 10, `${ recortadas } cubos en hueco para 10` );
 }
 
 demo.dispose();

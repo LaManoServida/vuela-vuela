@@ -4,6 +4,7 @@ import { config, quadOptions } from './config.js';
 import { createRenderer, createScene, createTiles, resize, fogDensityFor } from './world.js';
 import { preloadRegion, sampleGround } from './preload.js';
 import { buildCollisionGrid } from './voxels.js';
+import { createGridView } from './gridView.js';
 import { createDemoWorld } from './demoWorld.js';
 import { Quad } from './flight/quad.js';
 import { InputManager } from './input.js';
@@ -138,6 +139,7 @@ function teardownWorld() {
 
 	try {
 
+		world.gridView?.dispose();
 		world.tiles?.dispose();
 		world.demo?.dispose();
 		world.renderer.dispose();
@@ -171,8 +173,13 @@ async function loadAndFly( { demo = false } = {} ) {
 	abortController = new AbortController();
 	const signal = abortController.signal;
 
+	// La vista de depuración dibuja la rejilla, así que también la necesita: sin
+	// esto, arrancar con las colisiones apagadas dejaría la casilla «Ver la
+	// rejilla» encendida y sin nada que enseñar.
+	const needsGrid = config.collisions || config.showGrid;
+
 	const usedSteps = demo ? [] : [ 'root', 'tiles', 'textures', 'shaders' ];
-	if ( config.collisions ) usedSteps.push( 'collision' );
+	if ( needsGrid ) usedSteps.push( 'collision' );
 	usedSteps.push( 'spawn' );
 	steps.init( usedSteps );
 
@@ -191,7 +198,7 @@ async function loadAndFly( { demo = false } = {} ) {
 		if ( demo ) {
 
 			source = createDemoWorld( config, scene );
-			world = { renderer, scene, camera, sky, tiles: null, demo: source, grid: null };
+			world = { renderer, scene, camera, sky, tiles: null, demo: source, grid: null, gridView: null };
 			resize( renderer, camera, null, config );
 			await renderer.compileAsync( source.group, camera, scene );
 
@@ -199,15 +206,17 @@ async function loadAndFly( { demo = false } = {} ) {
 
 			tiles = createTiles( config, scene, camera, renderer ).tiles;
 			source = tiles;
-			world = { renderer, scene, camera, sky, tiles, demo: null, grid: null };
+			world = { renderer, scene, camera, sky, tiles, demo: null, grid: null, gridView: null };
 			resize( renderer, camera, tiles, config );
 			stats = await preloadRegion( { tiles, renderer, scene, camera, config, steps, signal } );
 
 		}
 
-		if ( config.collisions ) {
+		if ( needsGrid ) {
 
 			world.grid = await buildCollisionGrid( { tiles: source, config, steps, signal } );
+			world.gridView = createGridView( { grid: world.grid, scene, config } );
+			world.gridView?.setVisible( config.showGrid );
 
 		}
 
@@ -443,6 +452,10 @@ function frame( now ) {
 	drone.update( frameMs / 1000, controls );
 	drone.applyToCamera( camera, config.camTilt );
 
+	// Apagada sale por la primera línea; encendida sólo reconstruye al cambiar de
+	// celda. Va después de mover el dron para que la ventana no vaya un frame por detrás.
+	world.gridView?.update( drone.position );
+
 	// La cúpula del cielo viaja con la cámara: siempre a distancia infinita.
 	sky.position.copy( camera.position );
 
@@ -483,6 +496,19 @@ function onLiveSettingChange( key ) {
 
 		drone.options.collisions = config.collisions;
 		drone.grid = config.collisions ? world.grid : null;
+
+	}
+
+	// La vista de la rejilla es independiente de que la colisión esté activa:
+	// enseña contra qué se chocaría, y eso se quiere ver también volando a través.
+	// Lo que no puede es enseñar una rejilla que no se construyó al cargar.
+	if ( key === 'showGrid' ) {
+
+		if ( world.gridView ) world.gridView.setVisible( config.showGrid );
+		else if ( config.showGrid ) console.warn(
+			'[vuela-vuela] no hay rejilla que dibujar: esta zona se cargó con las '
+			+ 'colisiones apagadas. Vuelve a cargarla con «Ver la rejilla» ya marcada.',
+		);
 
 	}
 

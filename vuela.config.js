@@ -56,6 +56,12 @@ export default {
 	voxelSize: 2.0,            // m, resolución de la rejilla de colisión
 	crashSpeed: 4.5,           // m/s de impacto que rompe el dron
 
+	// Dibuja en rojo las celdas de colisión que rodean al dron. Es una ayuda de
+	// depuración: sirve para ver si la rejilla se pega a las fachadas y contra qué
+	// se está chocando de verdad. Se enciende y se apaga en la pausa, sin aterrizar.
+	showGrid: false,
+	gridRadius: 50,            // m, hasta dónde llega la vista de la rejilla
+
 	// Qué pasa al chocar. Ninguno de los cinco tiene deslizador en el menú: se
 	// tocan aquí, con el juego cerrado.
 	restitution: 0.18,         // 0 = se queda pegado a la pared, 1 = rebota como una pelota

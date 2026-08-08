@@ -441,6 +441,7 @@ export function buildFlightPanel( config, onChange ) {
 			nestedCheckbox( 'Airmode', bf, 'airMode', onChange, 'airmode' ),
 			nestedCheckbox( 'I-term relax', bf, 'itermRelax', onChange, 'iterm' ),
 			checkbox( 'Colisiones', config, 'collisions', onChange ),
+			checkbox( 'Ver la rejilla', config, 'showGrid', onChange ),
 			checkbox( 'Batería', config, 'battery', onChange ),
 		] ),
 	] );
@@ -576,6 +577,7 @@ export function buildPauseSettings( container, config, onChange ) {
 		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
 			nestedCheckbox( 'Airmode', bf, 'airMode', onChange, 'airmode' ),
 			checkbox( 'Colisiones', config, 'collisions', onChange ),
+			checkbox( 'Ver la rejilla', config, 'showGrid', onChange ),
 			checkbox( 'Batería', config, 'battery', onChange ),
 		] ),
 	] ) );
