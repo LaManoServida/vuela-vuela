@@ -1,6 +1,7 @@
 import { ui } from './config.js';
 import { h } from './dom.js';
 import { buildGamepadPanel } from './gamepadPanel.js';
+import { deriveAircraft } from './flight/derive.js';
 
 function field( label, control, valueEl ) {
 
@@ -748,23 +749,40 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 }
 
 /**
- * El aparato en sí. Todo son magnitudes físicas, así que cambiarlas cambia el
- * vuelo por la vía correcta: más masa es menos empuje/peso y más inercia, no un
- * número de "agilidad" bajado a mano.
+ * El aparato en sí. Todo son magnitudes físicas y ahora sí arrastran lo que
+ * cuelga de ellas —la masa y el brazo mandan sobre la inercia, el KV sobre la
+ * resistencia, el diámetro sobre la cuerda y la inercia de la hélice, las celdas
+ * sobre el peso—, así que cambiarlas cambia el vuelo por la vía correcta y no
+ * por un número de "agilidad" bajado a mano.
+ *
+ * Ver `src/flight/derive.js` para las fórmulas.
  */
 export function buildHardwarePanel( config, onChange ) {
 
 	const f = config.flight;
 	const note = h( 'p', { class: 'note' } );
 
+	// Lo que pesa el pack de ahora. Sale de restar, y no de repetir aquí la
+	// fórmula de `derive.js`: dos copias de una fórmula acaban diciendo cosas
+	// distintas, que es justo lo que este cambio viene a quitar.
+	const packMass = () => f.frame.mass - f.frame.dryMass;
+
 	const refresh = () => {
+
+		// El propio panel deriva antes de leer. En vuelo lo haría el dron, que
+		// comparte este mismo objeto, pero en el menú de arranque todavía no hay
+		// dron y las etiquetas se quedarían enseñando lo de la carga. Es puro e
+		// idempotente, así que llamarlo de más no cuesta nada.
+		deriveAircraft( f );
 
 		// Estimación rápida de empuje: T ∝ ω²·(área de pala). Sirve para que el
 		// deslizador dé una lectura útil sin resolver el modelo entero.
 		note.textContent = `${ f.name } · ${ ( f.frame.mass * 1000 ).toFixed( 0 ) } g `
 			+ `· ${ f.prop.diameterIn }×${ f.prop.pitchIn }" de ${ f.prop.blades } palas `
 			+ `· ${ f.motor.kv } KV · ${ f.battery.cells }S ${ ( f.battery.capacityAh * 1000 ).toFixed( 0 ) } mAh. `
-			+ `Todo esto se aplica al soltar el deslizador: el aparato se rehace en el sitio, sin tocar la escena.`;
+			+ `Todo esto se aplica al soltar el deslizador: el aparato se rehace en el sitio, sin tocar la escena. `
+			+ `Lo que cuelga de estas magnitudes se recalcula con ellas: la inercia sigue a la masa y al brazo, `
+			+ `la resistencia del motor al KV, y la cuerda y la inercia de la hélice a su diámetro y sus palas.`;
 		onChange?.( 'hardware' );
 
 	};
@@ -774,9 +792,12 @@ export function buildHardwarePanel( config, onChange ) {
 	return h( 'fieldset', {}, [
 		h( 'legend', { text: 'Aparato' } ),
 		h( 'div', { class: 'grid' }, [
-			nestedSlider( 'Masa con batería', f.frame, 'mass', {
+			nestedSlider( 'Masa en seco', f.frame, 'dryMass', {
 				...ui.mass,
-				format: v => `${ ( v * 1000 ).toFixed( 0 ) } g`,
+				// Lo pedido y lo que pesa de verdad: el pack se suma según sus
+				// celdas y su capacidad, así que cambiar la batería mueve este
+				// número sin tocar el deslizador.
+				format: v => `${ ( v * 1000 ).toFixed( 0 ) } g → ${ ( ( v + packMass() ) * 1000 ).toFixed( 0 ) } g con el pack`,
 				onChange: refresh, notify: 'hardware',
 			} ),
 			nestedSlider( 'KV del motor', f.motor, 'kv', {
@@ -804,9 +825,20 @@ export function buildHardwarePanel( config, onChange ) {
 				format: v => `${ ( v * 1000 ).toFixed( 0 ) } mm`,
 				onChange: refresh, notify: 'hardware',
 			} ),
-			nestedSlider( 'Arrastre frontal', f.frame.dragArea, 'z', {
+			nestedSlider( 'Arrastre frontal', f.frame.dragAreaRef, 'z', {
 				...ui.dragFront,
-				format: v => `${ ( v * 10000 ).toFixed( 0 ) } cm²`,
+				// Se declara para el aparato de referencia y escala con el brazo,
+				// porque un aparato más grande da más cara al aire. Cuando el brazo
+				// no es el de referencia, lo pedido y lo real no coinciden, y
+				// callárselo dejaría el deslizador mintiendo.
+				format: v => {
+
+					const real = f.frame.dragArea.z;
+					return Math.abs( real - v ) > 1e-6
+						? `${ ( v * 10000 ).toFixed( 0 ) } cm² → ${ ( real * 10000 ).toFixed( 0 ) } cm² de verdad`
+						: `${ ( v * 10000 ).toFixed( 0 ) } cm²`;
+
+				},
 				onChange: refresh, notify: 'drag',
 			} ),
 			nestedSlider( 'Palas por hélice', f.prop, 'blades', {
