@@ -1,6 +1,5 @@
 import { Vector3, Box3, Matrix4 } from 'three';
-
-const nextFrame = () => new Promise( r => requestAnimationFrame( r ) );
+import { nextTick } from './schedule.js';
 
 const MAX_BYTES = 64 * 1024 * 1024;   // techo de memoria de la rejilla
 const MAX_SAMPLES_PER_TRI = 64;       // tope de subdivisión por triángulo
@@ -282,7 +281,7 @@ export async function buildCollisionGrid( { tiles, config, steps, signal } ) {
 			}
 
 			steps.progress( ( m + t / triCount ) / meshes.length, `${ m + 1 } / ${ meshes.length } mallas` );
-			await nextFrame();
+			await nextTick();
 
 		}
 

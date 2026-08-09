@@ -1,6 +1,21 @@
 import { Vector3, Euler, Quaternion } from 'three';
+import { Scheduler } from '3d-tiles-renderer';
+import { nextTick } from './schedule.js';
 
-const nextFrame = () => new Promise( r => requestAnimationFrame( r ) );
+/**
+ * Un turno de carga: ceder el control y despertar al tileset.
+ *
+ * Sus colas —descargar, parsear, montar el nodo— difieren el siguiente turno a
+ * un frame, igual que hacía esta carga. Sin frames el turno no llega nunca y las
+ * colas se quedan a medias con trabajo pendiente, así que hay que dispararlas a
+ * mano: es lo mismo que hace el propio tileset al cambiar de sesión.
+ */
+export async function tick() {
+
+	await nextTick();
+	Scheduler.flushPending();
+
+}
 
 /**
  * Precarga completa de la zona.
@@ -52,7 +67,7 @@ async function waitForRoot( tiles, errors, steps, signal ) {
 
 		checkAbort( signal );
 		tiles.update();
-		await nextFrame();
+		await tick();
 
 		if ( errors.length ) {
 
@@ -107,7 +122,7 @@ async function downloadEverything( { tiles, steps, signal } ) {
 		const done = Math.max( 0, peakPending - pending );
 		steps.progress( done / Math.max( 1, peakPending ), `${ stats.inCache } tiles · ${ pending } en cola` );
 
-		await nextFrame();
+		await tick();
 
 		if ( performance.now() - start > 15 * 60 * 1000 ) {
 
@@ -192,7 +207,7 @@ async function uploadTextures( { tiles, renderer, steps, signal } ) {
 		}
 
 		steps.progress( i / Math.max( 1, all.length ), `${ i } / ${ all.length }` );
-		await nextFrame();
+		await tick();
 
 	}
 
@@ -226,7 +241,7 @@ async function compileShaders( { tiles, renderer, scene, camera, steps, signal }
 		camera.updateMatrixWorld( true );
 		renderer.render( scene, camera );
 		steps.progress( ( i + 1 ) / sweeps );
-		await nextFrame();
+		await tick();
 
 	}
 
