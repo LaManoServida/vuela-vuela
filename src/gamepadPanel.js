@@ -1,5 +1,5 @@
 import { AXES, AxisPicker, Calibration, RangeRecorder, calibrateAxis, hasRange, isCompleteMap, mapSnippet, sameMap, usedAxes } from './input.js';
-import { h } from './menu.js';
+import { h } from './dom.js';
 
 /*
  * El panel de mando: qué mando hay, cómo se mueven sus cuatro ejes y qué hacer

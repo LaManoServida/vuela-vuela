@@ -1,27 +1,5 @@
 import { ui } from './config.js';
-
-function h( tag, attrs = {}, children = [] ) {
-
-	const el = document.createElement( tag );
-	for ( const [ k, v ] of Object.entries( attrs ) ) {
-
-		if ( k === 'class' ) el.className = v;
-		else if ( k === 'text' ) el.textContent = v;
-		else if ( k === 'html' ) el.innerHTML = v;
-		else if ( k.startsWith( 'on' ) ) el.addEventListener( k.slice( 2 ).toLowerCase(), v );
-		else if ( v !== null && v !== undefined && v !== false ) el.setAttribute( k, v === true ? '' : v );
-
-	}
-
-	for ( const child of [].concat( children ) ) {
-
-		if ( child ) el.appendChild( typeof child === 'string' ? document.createTextNode( child ) : child );
-
-	}
-
-	return el;
-
-}
+import { h } from './dom.js';
 
 function field( label, control, valueEl ) {
 
@@ -766,5 +744,3 @@ export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
 	return buildSettings( container, config, { onChange, onEstimate } );
 
 }
-
-export { h };
