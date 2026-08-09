@@ -9,8 +9,7 @@ import { createDemoWorld } from './demoWorld.js';
 import { Quad } from './flight/quad.js';
 import { InputManager } from './input.js';
 import { Hud } from './hud.js';
-import { buildMenu, buildPauseSettings } from './menu.js';
-import { buildGamepadPanel } from './gamepadPanel.js';
+import { buildSettings } from './menu.js';
 
 const dom = {
 	canvas: document.getElementById( 'viewport' ),
@@ -27,7 +26,6 @@ const dom = {
 	btnCancel: document.getElementById( 'btn-cancel' ),
 	pause: document.getElementById( 'pause' ),
 	pauseNote: document.getElementById( 'pause-note' ),
-	pauseGamepad: document.getElementById( 'pause-gamepad' ),
 	pauseSettings: document.getElementById( 'pause-settings' ),
 	btnResume: document.getElementById( 'btn-resume' ),
 	btnRespawn: document.getElementById( 'btn-respawn' ),
@@ -45,7 +43,9 @@ let phase = 'menu';        // 'menu' | 'loading' | 'flying' | 'paused'
 let abortController = null;
 let rafId = 0;
 let lastTime = 0;
-let pauseGamepad = null;   // panel de mapeo montado en la pausa
+let menuSettings = null;   // los ajustes del menú de arranque, montados una vez
+let pauseSettings = null;  // los de la pausa, que se rehacen en cada apertura
+let pauseTab = 'zona';     // la pestaña donde dejaste la pausa, mientras dure la página
 
 // Lo que se ha tocado en la pausa y no se puede aplicar en el sitio. No se
 // aplica al mover el control —un deslizador pasa por decenas de valores en un
@@ -385,14 +385,22 @@ function pauseFlight() {
  * Monta la pantalla de pausa. El panel de mando va aquí y no sólo en el menú
  * principal a propósito: llegar al menú desde el vuelo es «Cambiar de zona», que
  * descarga el mundo, y quedarse sin mando no puede costar una descarga entera.
+ *
+ * Con `onVoxelSize`, al revés que el menú: aquí sí hay zona cargada, así que se
+ * puede decir qué resolución de rejilla va a caber de verdad.
  */
 function openPause() {
 
 	dom.pause.hidden = false;
-	buildPauseSettings( dom.pauseSettings, config, onLiveSettingChange, realVoxelSize );
 
-	pauseGamepad?.dispose();
-	pauseGamepad = buildGamepadPanel( dom.pauseGamepad, config, input, { onChange: refreshResume } );
+	pauseSettings?.dispose();
+	pauseSettings = buildSettings( dom.pauseSettings, config, {
+		onChange: onLiveSettingChange,
+		onVoxelSize: realVoxelSize,
+		input,
+		onGamepadChange: refreshResume,
+		initialTab: pauseTab,
+	} );
 
 	refreshResume();
 
@@ -401,8 +409,12 @@ function openPause() {
 function closePause() {
 
 	dom.pause.hidden = true;
-	pauseGamepad?.dispose();
-	pauseGamepad = null;
+
+	// Antes de soltarlo, quedarse con dónde lo dejó: si estaba afinando el PID,
+	// la próxima pausa abre en «Vuelo» y no le hace volver a buscarlo.
+	if ( pauseSettings ) pauseTab = pauseSettings.tab;
+	pauseSettings?.dispose();
+	pauseSettings = null;
 
 }
 
@@ -729,11 +741,14 @@ function setupMenu() {
 
 	// No hay `onChange` de persistencia: la configuración vive en
 	// `vuela.config.js` y el menú sólo edita la copia en memoria.
-	buildMenu( dom.menuBody, config, { onEstimate: estimateText } );
-
-	const gamepadHost = document.createElement( 'div' );
-	dom.menuBody.appendChild( gamepadHost );
-	buildGamepadPanel( gamepadHost, config, input );
+	//
+	// Y sin `onVoxelSize`: aquí todavía no hay zona cargada, así que no hay caja
+	// que medir y no se puede saber qué resolución cabrá. El deslizador enseña lo
+	// pedido a secas, que es lo único cierto en ese momento.
+	menuSettings = buildSettings( dom.menuBody, config, {
+		onEstimate: estimateText,
+		input,
+	} );
 
 }
 

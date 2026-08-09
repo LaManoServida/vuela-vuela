@@ -296,6 +296,22 @@ const mainSource = await read( 'main.js' );
 check( 'la escala de la niebla vive en un solo sitio',
 	! /0\.00012/.test( mainSource ) && ( worldSource.match( /0\.00012/g ) || [] ).length === 1 );
 
+console.log( '\n== el panel de mando vive dentro de los ajustes ==' );
+
+// Tuvo hueco propio en la pausa y se montaba aparte desde `main.js`. Ahora es
+// el contenido de la pestaña «Mando», y si alguien devuelve el hueco tendremos
+// dos sitios donde montarlo y uno de los dos se quedará viejo.
+const htmlSource = await ( await import( 'node:fs/promises' ) ).readFile(
+	new URL( '../index.html', import.meta.url ), 'utf8' );
+
+check( 'sin hueco suelto para el panel de mando',
+	! htmlSource.includes( 'pause-gamepad' ) && ! mainSource.includes( 'pause-gamepad' ) );
+
+// El bucle de lectura del gamepad ahora lo para `buildSettings`, y la pausa lo
+// rehace en cada apertura: sin este `dispose` se queda un bucle vivo por pausa.
+check( 'la pausa suelta los ajustes al cerrarse',
+	/pauseSettings\?\.dispose\(\)/.test( mainSource ) );
+
 console.log( '\n== el vuelo por ratón y teclado no vuelve ==' );
 
 // Es el tipo de código que reaparece solo: alguien echa de menos poder probar

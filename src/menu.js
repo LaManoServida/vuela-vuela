@@ -1,5 +1,6 @@
 import { ui } from './config.js';
 import { h } from './dom.js';
+import { buildGamepadPanel } from './gamepadPanel.js';
 
 function field( label, control, valueEl ) {
 
@@ -153,22 +154,121 @@ function maxRate( bf, yaw = false ) {
 // ---------------------------------------------------------------------------
 
 /**
- * Todas las secciones de ajustes, en orden.
- *
- * Hay un solo constructor de menú y lo usan los dos sitios —el menú de arranque
- * y la pausa—, porque tener dos listas distintas garantizaba que una de las dos
- * se quedara vieja: la mitad de los ajustes sólo se podían tocar cerrando el
- * juego y editando el fichero, que es justo lo que no queremos.
- *
- * Lo que no se puede aplicar en caliente no se esconde: se muestra con su aviso
- * al lado. Saber que un ajuste existe y que hace falta recargar es mejor que no
- * saber que existe.
+ * Las seis pestañas, en orden. El `id` es lo que se recuerda entre pausas y lo
+ * que aceptan `initialTab` y `showTab`; la etiqueta es lo que se lee.
  */
-export function buildSettings( container, config, { onChange, onEstimate, onVoxelSize } = {} ) {
+const TABS = [
+	{ id: 'zona', label: 'Zona' },
+	{ id: 'mando', label: 'Mando' },
+	{ id: 'vuelo', label: 'Vuelo' },
+	{ id: 'aparato', label: 'Aparato' },
+	{ id: 'juego', label: 'Juego' },
+	{ id: 'imagen', label: 'Imagen' },
+];
+
+/**
+ * Todos los ajustes, repartidos en pestañas.
+ *
+ * Hay un solo constructor y lo usan los dos sitios —el menú de arranque y la
+ * pausa—, porque tener dos listas distintas garantizaba que una de las dos se
+ * quedara vieja: la mitad de los ajustes sólo se podían tocar cerrando el juego
+ * y editando el fichero, que es justo lo que no queremos. Lo que no se puede
+ * aplicar en caliente tampoco se esconde: se muestra con su aviso al lado.
+ *
+ * Las seis se montan de una vez y se conmutan con `hidden`. Cambiar de pestaña
+ * no reconstruye nada, y sobre todo no reconstruye el panel de mando, que lee
+ * el gamepad en cada frame: rehacerlo a cada clic partiría una calibración a
+ * medias. Ese bucle es la razón de que esto devuelva `dispose`.
+ */
+export function buildSettings( container, config, {
+	onChange, onEstimate, onVoxelSize, input, onGamepadChange, initialTab,
+} = {} ) {
 
 	container.replaceChildren();
 
-	// --- API key ---
+	const zone = buildZonePanel( config, onChange, onEstimate );
+
+	// Sin `input` no hay a quién leer: el panel de mando no se monta y la
+	// pestaña se queda con la zona muerta a secas. No pasa hoy en ningún sitio,
+	// pero montar medio panel contra `undefined` sería peor.
+	const gamepadHost = h( 'div' );
+	const gamepad = input
+		? buildGamepadPanel( gamepadHost, config, input, { onChange: onGamepadChange } )
+		: null;
+
+	const content = {
+		zona: zone.rows,
+		mando: [ gamepadHost, buildInputPanel( config, onChange ) ],
+		vuelo: buildFlightPanel( config, onChange ),
+		aparato: [ buildHardwarePanel( config, onChange ) ],
+		juego: [ buildGamePanel( config, onChange, onVoxelSize ) ],
+		imagen: [ buildImagePanel( config, onChange ) ],
+	};
+
+	const panes = {};
+	const buttons = {};
+	let active = null;
+
+	const showTab = id => {
+
+		if ( ! panes[ id ] ) return;
+
+		active = id;
+		for ( const tab of TABS ) {
+
+			panes[ tab.id ].hidden = tab.id !== id;
+			buttons[ tab.id ].classList.toggle( 'sel', tab.id === id );
+			buttons[ tab.id ].setAttribute( 'aria-selected', String( tab.id === id ) );
+
+		}
+
+	};
+
+	const bar = h( 'div', { class: 'tabs', role: 'tablist' } );
+	const body = h( 'div' );
+
+	for ( const tab of TABS ) {
+
+		buttons[ tab.id ] = h( 'button', {
+			class: 'tab', type: 'button', role: 'tab', text: tab.label,
+			onclick: () => showTab( tab.id ),
+		} );
+		panes[ tab.id ] = h( 'div', { role: 'tabpanel' }, content[ tab.id ] );
+
+		bar.appendChild( buttons[ tab.id ] );
+		body.appendChild( panes[ tab.id ] );
+
+	}
+
+	container.append( bar, body );
+	showTab( panes[ initialTab ] ? initialTab : TABS[ 0 ].id );
+
+	return {
+		refreshEstimate: zone.refreshEstimate,
+		showTab,
+		get tab() {
+
+			return active;
+
+		},
+		dispose() {
+
+			gamepad?.dispose();
+
+		},
+	};
+
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * La cuenta de Google y dónde se vuela. Devuelve también con qué refrescar la
+ * estimación de carga, que la pide el menú de arranque cada vez que se mueve el
+ * radio o la calidad.
+ */
+export function buildZonePanel( config, onChange, onEstimate ) {
+
 	const keyInput = h( 'input', {
 		type: 'text',
 		placeholder: 'AIza…',
@@ -182,13 +282,12 @@ export function buildSettings( container, config, { onChange, onEstimate, onVoxe
 		},
 	} );
 
-	container.appendChild( h( 'fieldset', {}, [
+	const account = h( 'fieldset', {}, [
 		h( 'legend', { text: 'Cuenta de Google' } ),
 		field( 'API key de Google Maps Platform (Map Tiles API)', keyInput ),
 		h( 'p', { class: 'note', html: 'Cada arranque consume <b>1</b> de las 1.000 peticiones de "root tileset" gratuitas al mes. Los tiles que se descarguen después no se facturan aparte. Ver <code>README.md</code> para crear la clave.' } ),
-	] ) );
+	] );
 
-	// --- Zona ---
 	const placeGrid = h( 'div', { class: 'places' } );
 	const latInput = h( 'input', { type: 'number', step: ui.lat.step, value: config.lat } );
 	const lonInput = h( 'input', { type: 'number', step: ui.lon.step, value: config.lon } );
@@ -245,7 +344,7 @@ export function buildSettings( container, config, { onChange, onEstimate, onVoxe
 
 	};
 
-	container.appendChild( h( 'fieldset', {}, [
+	const zone = h( 'fieldset', {}, [
 		h( 'legend', { text: 'Zona de vuelo' } ),
 		placeGrid,
 		h( 'div', { class: 'grid', style: 'margin-top:12px' }, [
@@ -270,21 +369,18 @@ export function buildSettings( container, config, { onChange, onEstimate, onVoxe
 		] ),
 		estimate,
 		h( 'p', { class: 'note', text: 'La zona se congela al cargarla: cambiar esto en pausa no afecta al vuelo en curso, se aplica la próxima vez que cargues.' } ),
-	] ) );
+	] );
 
 	refreshEstimate();
 
-	// --- Vuelo: mando y controlador ---
-	container.append( ...buildFlightPanel( config, onChange ) );
+	return { rows: [ account, zone ], refreshEstimate };
 
-	// --- Aparato ---
-	container.appendChild( buildHardwarePanel( config, onChange ) );
+}
 
-	// --- Juego ---
-	container.appendChild( buildGamePanel( config, onChange, onVoxelSize ) );
+/** Lo que hay entre el stick y el modelo. Acompaña al panel de mando. */
+export function buildInputPanel( config, onChange ) {
 
-	// --- Entrada ---
-	container.appendChild( h( 'fieldset', {}, [
+	return h( 'fieldset', {}, [
 		h( 'legend', { text: 'Entrada' } ),
 		h( 'div', { class: 'grid' }, [
 			labelledSlider( 'Zona muerta de los sticks', config, 'deadzone', {
@@ -294,10 +390,14 @@ export function buildSettings( container, config, { onChange, onEstimate, onVoxe
 			} ),
 		] ),
 		h( 'p', { class: 'note', text: 'Cuánto hay que mover un stick desde el centro para que empiece a contar. Súbela sólo si el mando tiembla en reposo: de más, se come la precisión alrededor del centro, que es donde se vuela.' } ),
-	] ) );
+	] );
 
-	// --- Render ---
-	container.appendChild( h( 'fieldset', {}, [
+}
+
+/** Lo que se ve por la cámara. Nada de esto toca el vuelo. */
+export function buildImagePanel( config, onChange ) {
+
+	return h( 'fieldset', {}, [
 		h( 'legend', { text: 'Imagen' } ),
 		h( 'div', { class: 'grid' }, [
 			labelledSlider( 'FOV', config, 'fov', {
@@ -318,9 +418,7 @@ export function buildSettings( container, config, { onChange, onEstimate, onVoxe
 			checkbox( 'Materiales planos (recomendado)', config, 'unlit', onChange ),
 		] ),
 		h( 'p', { class: 'note', text: 'Los materiales planos se cambian en el sitio, sobre lo que ya está descargado. El antialiasing no puede: se fija al crear el contexto de vídeo, así que al reanudar se recarga la zona sola —y eso cuesta una de las 1.000 sesiones gratuitas del mes.' } ),
-	] ) );
-
-	return { refreshEstimate };
+	] );
 
 }
 
@@ -719,28 +817,3 @@ export function buildHardwarePanel( config, onChange ) {
 
 }
 
-// ---------------------------------------------------------------------------
-
-/**
- * La pausa monta exactamente las mismas secciones que el menú de arranque.
- *
- * Antes era una selección reducida —«lo que se puede tocar sin recargar»— y eso
- * dejaba la mitad de los ajustes sólo accesibles cerrando el juego y editando el
- * fichero. Ahora está todo en los dos sitios, y lo que necesita recargar lo dice
- * su propia nota. La zona ya cargada no se pierde por abrir la pausa.
- */
-export function buildPauseSettings( container, config, onChange, onVoxelSize ) {
-
-	return buildSettings( container, config, { onChange, onVoxelSize } );
-
-}
-
-/** El menú de arranque: las mismas secciones, más la estimación de carga. */
-export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
-
-	// Sin `onVoxelSize`: aquí todavía no hay zona cargada, así que no hay caja que
-	// medir y no se puede saber qué resolución cabrá. El deslizador enseña lo
-	// pedido a secas, que es lo único cierto en ese momento.
-	return buildSettings( container, config, { onChange, onEstimate } );
-
-}

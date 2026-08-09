@@ -93,6 +93,30 @@ fieldset {
 }
 legend { padding: 0 6px; color: var(--accent-2); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
 
+.tabs {
+	display: flex;
+	gap: 2px;
+	margin: 0 0 14px;
+	border-bottom: 1px solid var(--line);
+	overflow-x: auto;
+	scrollbar-width: thin;
+}
+/* Sin envolver a dos filas: una barra que se reordena sola cambia de sitio las
+   cosas entre visitas, que es justo lo que las pestañas venían a arreglar. */
+.tabs button.tab {
+	flex: 0 0 auto;
+	background: none;
+	border: 0;
+	border-bottom: 2px solid transparent;
+	border-radius: 0;
+	padding: 8px 14px;
+	color: var(--dim);
+	font-size: 13px;
+	font-weight: 600;
+}
+.tabs button.tab:hover { background: rgba(255, 255, 255, 0.06); color: var(--fg); }
+.tabs button.tab.sel { color: var(--accent); border-bottom-color: var(--accent); }
+
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .row.actions { margin-top: 16px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 16px; }
