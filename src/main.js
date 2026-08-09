@@ -406,6 +406,23 @@ function closePause() {
 
 }
 
+/**
+ * ¿Hay trabajo de rejilla esperando a que se reanude?
+ *
+ * Se pregunta en vez de apuntarse porque así se cancela solo: quien enciende las
+ * colisiones y se arrepiente antes de reanudar no paga una construcción que ya
+ * no quiere. Sólo `voxelSize` deja marca (`pending.grid`), porque ahí la rejilla
+ * existe y hay que rehacerla; el resto se deduce de si la hay y de si alguien la
+ * va a usar. Sin colisiones y sin vista no la usa nadie: construirla son
+ * segundos para nada.
+ */
+function gridPending() {
+
+	if ( ! config.collisions && ! config.showGrid ) return false;
+	return ! world?.grid || pending.grid;
+
+}
+
 /** Reanudar sólo está disponible si hay con qué pilotar. */
 function refreshResume() {
 
@@ -417,8 +434,8 @@ function refreshResume() {
 		? 'Sin mando no se vuela. Conéctalo y mapea los cuatro ejes aquí abajo; la zona sigue cargada.'
 		: pending.reload
 			? 'Has tocado algo que obliga a recargar la zona: al reanudar se recarga sola. Cuesta una de las 1.000 sesiones gratuitas del mes.'
-			: pending.grid
-				? 'Al reanudar se reconstruye la rejilla de colisiones con la resolución nueva. Son unos segundos y no cuesta cuota.'
+			: gridPending()
+				? 'Al reanudar se construye la rejilla de colisiones con la resolución de ahora. Son unos segundos y no cuesta cuota.'
 				: 'La zona ya está cargada en memoria: reanudar es instantáneo. Esc también reanuda.';
 
 }
@@ -505,16 +522,20 @@ function onLiveSettingChange( key ) {
 
 	}
 
+	// Colisiones y vista de la rejilla necesitan una rejilla, y la zona puede
+	// haberse cargado sin ella. Encenderlas no puede quedarse en nada: si no hay,
+	// `gridPending()` lo ve y se construye al reanudar, como cualquier otro
+	// pendiente. Apagarlas otra vez lo cancela solo, porque no se apunta nada.
 	if ( key === 'collisions' ) {
 
 		drone.options.collisions = config.collisions;
 		drone.grid = config.collisions ? world.grid : null;
+		refreshResume();
 
 	}
 
 	// La vista de la rejilla es independiente de que la colisión esté activa:
 	// enseña contra qué se chocaría, y eso se quiere ver también volando a través.
-	// Lo que no puede es enseñar una rejilla que no se construyó al cargar.
 	// El alcance y el refresco se leen al montar la vista, así que se rehace. Es
 	// instantáneo: la rejilla no se toca, sólo la malla que la dibuja.
 	if ( key === 'gridRadius' || key === 'gridRefresh' ) {
@@ -535,11 +556,8 @@ function onLiveSettingChange( key ) {
 
 	if ( key === 'showGrid' ) {
 
-		if ( world.gridView ) world.gridView.setVisible( config.showGrid );
-		else if ( config.showGrid ) console.warn(
-			'[vuela-vuela] no hay rejilla que dibujar: esta zona se cargó con las '
-			+ 'colisiones apagadas. Vuelve a cargarla con «Ver la rejilla» ya marcada.',
-		);
+		world.gridView?.setVisible( config.showGrid );
+		refreshResume();
 
 	}
 
@@ -600,12 +618,7 @@ async function resumeFlight() {
 
 	}
 
-	if ( pending.grid ) {
-
-		pending.grid = false;
-		await rebuildGrid();
-
-	}
+	if ( gridPending() ) await rebuildGrid();
 
 	startFlying();
 
@@ -615,7 +628,7 @@ async function resumeFlight() {
 const RELOAD_KEYS = [ 'place', 'coords', 'radius', 'quality', 'antialias' ];
 
 /**
- * Rehace la rejilla de colisiones sin tocar la escena.
+ * Construye o rehace la rejilla de colisiones sin tocar la escena.
  *
  * La geometría ya está descargada, así que esto es trabajo de CPU y nada más: ni
  * una petición a Google. Se hace en pausa, con la pantalla de carga puesta,
@@ -640,6 +653,10 @@ async function rebuildGrid() {
 		world.gridView?.setVisible( config.showGrid );
 
 		drone.grid = config.collisions ? world.grid : null;
+
+		// Se borra aquí y no al pedir la reconstrucción: si ésta falla o se
+		// cancela, el pendiente sigue vivo y se vuelve a intentar al reanudar.
+		pending.grid = false;
 
 	} catch ( error ) {
 
