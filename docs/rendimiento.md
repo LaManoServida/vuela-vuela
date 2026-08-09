@@ -36,6 +36,14 @@ enfoque es el contrario: se paga todo el coste antes de despegar.
    con clave independiente de `key` y `session`. No ahorra dinero (lo facturable es la
    sesión), pero recargar la misma zona pasa de minutos a segundos.
 
+10. **La carga no depende de que mires la pestaña.** Todo lo anterior avanza a trozos,
+    cediendo el control entre uno y otro, y ese turno era un frame. El navegador deja de dar
+    frames en cuanto la pestaña no se ve, así que la carga se quedaba helada a la mitad —y
+    con ella las colas del propio tileset, que difieren su siguiente descarga o parseo de la
+    misma forma—. Fuera de la vista el turno lo marca el temporizador de un worker, que el
+    navegador no estrangula como estrangula los de la página, y cada turno despierta a mano
+    las colas paradas. Una zona grande se puede dejar cargando y volver a por ella.
+
 El OSD lleva un **gráfico de frametime y un contador de tirones** (frames > 24 ms) en la
 esquina superior derecha. Si marca 0 tras un vuelo largo, la precarga hizo su trabajo. Si
 aparece un pico, algo se quedó fuera.

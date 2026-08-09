@@ -69,6 +69,15 @@ pega en `vuela.config.js` vuelve a leerse como el mismo mapeo pese a comillas y 
 invertidas en el `id`, que las teclas pulsadas fuera del vuelo no se disparan en el primer
 frame, y que no ha vuelto la API del ratón.
 
+`tests/schedule.test.mjs` cubre los turnos con los que avanza la carga, que es lo que la
+mantiene viva con la pestaña en segundo plano. Falsea las tres piezas —los frames, que aquí
+no llegan nunca solos; el estado de la pestaña; y el worker que hace de reloj— y comprueba
+las dos mitades del problema: que el turno llegue sin un solo frame (oculta o sin foco) y
+que además despierte las colas del tileset, que difieren su siguiente descarga a un frame
+por su cuenta. Cubre también el plan B: si un navegador estrangulase también los
+temporizadores del worker se nota, porque el turno tarda de más, y se cambia a un mecanismo
+que nadie puede estrangular.
+
 `tests/world.test.mjs` cubre la voxelización de geometría real, la caída libre, el choque
 contra fachada y posarse sin temblar. Cubre también las dos formas que tiene la rejilla de
 irse de las manos: que un tile cargado pero **no dibujado** —un ancestro de miles de
