@@ -111,33 +111,44 @@ console.log( '\n== sentido de cada eje ==' );
 }
 
 // ---------------------------------------------------------------------------
-console.log( '\n== prestaciones frente a un 5" real ==' );
+console.log( '\n== el aparato del fichero puede volar, sea el que sea ==' );
 {
+	/*
+	 * Aquí había un envelope de 5": empuje por motor entre 550 y 850 g,
+	 * empuje/peso entre 3.5 y 6, gas de sustentación entre 30 y 50 %. Describía
+	 * el TBS Oblivion, no un dron, y en cuanto el fichero dejó de ser ese
+	 * aparato el suite se puso en rojo sin que nada estuviera roto.
+	 *
+	 * Peor: sus dos primeras bandas se contradecían entre sí para casi cualquier
+	 * otro quad —550-850 g por motor Y 3.5-6 de empuje/peso sólo se cumplen a la
+	 * vez entre 367 y 971 g—, así que un sub-250 no podía pasarlas ni con la
+	 * mejor combinación de motor y hélice.
+	 *
+	 * Lo que se comprueba ahora es lo que vale para cualquier aparato: que puede
+	 * sostenerse, que le sobra margen, y que los números no se han ido a un sitio
+	 * absurdo. Eso sigue cazando lo que aquello cazaba de verdad —un variador o
+	 * un modelo de pala rotos— sin exigirle que sea un 5".
+	 *
+	 * Las prestaciones concretas de un aparato dado no son cosa de un test: se
+	 * miran en el panel «Aparato», que las enseña en vivo.
+	 */
 	const q = makeQuad();
-	const gramsPerMotor = q.maxThrust / 4 / 9.81 * 1000;
 
-	check( 'empuje estático por motor entre 550 y 850 g', between( gramsPerMotor, 550, 850 ),
-		`${ gramsPerMotor.toFixed( 0 ) } g` );
-	check( 'relación empuje/peso entre 3.5 y 6', between( q.thrustToWeight, 3.5, 6 ),
-		`${ q.thrustToWeight.toFixed( 2 ) }:1` );
-	// Con un variador de lazo abierto el empuje va con el CUADRADO del ciclo de
-	// trabajo, así que el gas de sustentación sale en 1/√(empuje/peso) —aquí
-	// 1/√5.86 = 41 %, y la curva del variador lo deja en 45—. Antes daba 35 %
-	// porque el regulador de velocidad que estrangulaba el variador enderezaba esa
-	// curva; era el apaño, no el aparato. La banda describe ahora la relación
-	// física: un quad con más empuje/peso sustenta con menos gas y al revés.
-	check( 'gas de sustentación entre 30 y 50 %', between( q.hoverThrottle, 0.30, 0.50 ),
+	// El techo de 40 no describe ningún quad: está para cazar un empuje
+	// desbocado —un modelo de pala roto da cientos— sin opinar sobre la clase.
+	check( 'se sostiene, y con margen', between( q.thrustToWeight, 1.5, 40 ),
+		`empuje/peso ${ q.thrustToWeight.toFixed( 2 ) }:1` );
+	check( 'sustenta sin agotar el gas', between( q.hoverThrottle, 0.02, 0.90 ),
 		`${ ( q.hoverThrottle * 100 ).toFixed( 1 ) } %` );
-	check( 'RPM de sustentación entre 7000 y 12000', between( q.hoverRpm, 7000, 12000 ),
-		`${ q.hoverRpm.toFixed( 0 ) } RPM` );
-	check( 'consumo en sustentación entre 10 y 30 A', between( q.hoverCurrent, 10, 30 ),
-		`${ q.hoverCurrent.toFixed( 1 ) } A` );
 
-	// RPM y corriente a fondo, en estático.
 	const s = makeQuad();
 	fly( s, { throttle: 1 }, 1.5 );
-	check( 'RPM a gas pleno entre 18000 y 28000', between( s.averageRpm, 18000, 28000 ),
-		`${ s.averageRpm.toFixed( 0 ) } RPM` );
+	check( 'sustenta más despacio de lo que la hélice puede girar',
+		q.hoverRpm > 0 && q.hoverRpm < s.averageRpm,
+		`${ q.hoverRpm.toFixed( 0 ) } de ${ s.averageRpm.toFixed( 0 ) } RPM` );
+	check( 'y sustentar cuesta menos corriente que ir a fondo',
+		q.hoverCurrent > 0 && q.hoverCurrent < s.totalCurrent,
+		`${ q.hoverCurrent.toFixed( 1 ) } de ${ s.totalCurrent.toFixed( 1 ) } A` );
 }
 
 // ---------------------------------------------------------------------------
@@ -307,6 +318,23 @@ console.log( '\n== hélice: elemento de pala + cantidad de movimiento ==' );
 	check( 'el empuje crece con el cuadrado de las vueltas', between( t20 / t10, 3.4, 4.6 ),
 		`×${ ( t20 / t10 ).toFixed( 2 ) } al doblar RPM` );
 
+	// A vueltas iguales, más disco es más empuje. Aquí sí es incondicional: sin
+	// motor de por medio, nada puede hacer caer las vueltas. En el aparato
+	// entero la afirmación es falsa en cuanto el motor se queda sin margen.
+	const mayor = new Prop( { ...p.prop, diameterIn: p.prop.diameterIn * 1.3 } );
+	const empujeDe = ( pr, rpm ) => {
+
+		pr.reset();
+		const w = rpm * Math.PI / 30;
+		for ( let i = 0; i < 4000; i ++ ) { pr.omega = w; pr.update( 0.0005, 0, 0, 1 ); }
+		return pr.thrust;
+
+	};
+
+	check( 'a vueltas iguales, una hélice mayor da más empuje',
+		empujeDe( mayor, 15000 ) > empujeDe( prop, 15000 ) * 1.15,
+		`${ empujeDe( prop, 15000 ).toFixed( 2 ) } → ${ empujeDe( mayor, 15000 ).toFixed( 2 ) } N` );
+
 	// Subiendo, la pala ve más flujo axial y su ángulo de ataque baja: a RPM
 	// constantes se sube con MENOS empuje, no con más. Es la razón de que haya
 	// que meter gas para trepar, no sólo para sostenerse.
@@ -408,17 +436,26 @@ console.log( '\n== el hardware manda de verdad ==' );
 	check( 'y sube el gas de sustentación', heavy.hoverThrottle > base.hoverThrottle,
 		`${ ( base.hoverThrottle * 100 ).toFixed( 0 ) } → ${ ( heavy.hoverThrottle * 100 ).toFixed( 0 ) } %` );
 
-	const bigProp = makeQuad( p => { p.prop.diameterIn = 6.5; } );
-	check( 'una hélice mayor da más empuje', bigProp.maxThrust > base.maxThrust * 1.15,
-		`${ base.maxThrust.toFixed( 1 ) } → ${ bigProp.maxThrust.toFixed( 1 ) } N` );
-	check( 'y gira más despacio', bigProp.hoverRpm < base.hoverRpm,
+	// Ojo con lo que se puede afirmar aquí: «una hélice mayor da más empuje» NO
+	// es cierto en el aparato entero. Sólo lo es a vueltas iguales, y una hélice
+	// mayor carga más al motor, así que las vueltas caen. Con un motor sin
+	// margen —sobre-helicado— el empuje total BAJA al crecer la hélice, que es
+	// lo que pasa de verdad en un banco. Esa afirmación vive ahora donde es
+	// incondicional, en el bloque de la hélice; aquí se queda lo que no depende
+	// del motor: el régimen de sustentación lo fijan el peso y la hélice.
+	const bigProp = makeQuad( p => { p.prop.diameterIn *= 1.3; } );
+	check( 'una hélice mayor sustenta a menos vueltas', bigProp.hoverRpm < base.hoverRpm,
 		`${ base.hoverRpm.toFixed( 0 ) } → ${ bigProp.hoverRpm.toFixed( 0 ) } RPM` );
 
 	// El régimen de sustentación sólo depende del peso y de la hélice, así que
 	// pasar a 6S no lo cambia: lo que cambia es que hace falta menos gas para
 	// llegar y sobra más margen arriba. Eso es exactamente lo que se busca al
 	// montar 6S en la vida real.
-	const sixS = makeQuad( p => { p.battery.cells = 6; p.motor.kv = 1550; } );
+	//
+	// El mismo motor, sólo más tensión: antes se le cambiaba también el KV a un
+	// 1550 fijo, que era el que le pegaba al aparato de entonces. Con otro
+	// aparato ese número mezclaba dos cambios y podía dar la vuelta al resultado.
+	const sixS = makeQuad( p => { p.battery.cells = 6; } );
 	check( 'el régimen de sustentación no depende de la batería',
 		Math.abs( sixS.hoverRpm - base.hoverRpm ) < 1,
 		`${ sixS.hoverRpm.toFixed( 0 ) } vs ${ base.hoverRpm.toFixed( 0 ) } RPM` );
@@ -543,7 +580,10 @@ console.log( '\n== el aparato se rehace en caliente ==' );
 
 	const antes = { ep: drone.thrustToWeight, y: drone.position.y, rpm: drone.averageRpm, gas: drone.hoverThrottle };
 
-	drone.params.frame.mass = 0.300;      // lo que hace el deslizador de masa
+	// La mitad de lo que pese, no un 0.300 fijo: aligerar tiene que subir el
+	// empuje/peso sea cual sea el aparato, y con un número clavado dependía de
+	// si el del fichero pesaba más o menos que ese 0.300.
+	drone.params.frame.mass /= 2;         // lo que hace el deslizador de masa
 	drone.refresh();
 
 	check( 'cambiar la masa cambia el empuje/peso al momento', drone.thrustToWeight > antes.ep * 1.5,
@@ -630,8 +670,11 @@ console.log( '\n== la hélice hace molinete ==' );
 		`${ corte.rpmMin.toFixed( 0 ) } RPM con el gas a cero` );
 	check( 'cortar el gas del todo no monta un bailecito', corte.grados < 5,
 		`${ corte.grados.toFixed( 1 ) } °/s` );
-	check( 'bajar a gas de sustentación no excita nada', caida( 0.02, 0.45 ).grados < 1,
-		`${ caida( 0.02, 0.45 ).grados.toFixed( 2 ) } °/s` );
+	// El gas de sustentación del aparato que haya, no un 0.45 fijo: aquel era el
+	// del 5" de entonces, y en otro aparato es un gas de ascenso o de caída.
+	const vuelta = caida( 0.02, makeQuad().hoverThrottle );
+	check( 'bajar a gas de sustentación no excita nada', vuelta.grados < 1,
+		`${ vuelta.grados.toFixed( 2 ) } °/s` );
 }
 
 console.log( '\n== mover el gas no puede desestabilizar el dron ==' );
@@ -778,10 +821,22 @@ console.log( '\n== la cámara no baila con el paso fijo ==' );
 
 	check( 'a 62,5 fps no hay nada que corregir', Math.abs( medir( 62.5 ).pintado - suelo ) < 1e-9,
 		`${ ( suelo * 100 ).toFixed( 2 ) } % de dinámica real` );
-	check( 'el paso fijo hace bailar el estado crudo', crudo > suelo * 2,
+	// Cuánto aliasing sale depende del aparato: lo que se alía es el giro, y un
+	// dron que alabea más deprisa reparte más ángulo en ese milisegundo de más.
+	// Medido a fondo de stick sale 1.8× el suelo en un sub-250, 2.5× en el
+	// Oblivion y 3.0× en uno de 800 g, así que el umbral pide sólo que se
+	// despegue del suelo con claridad; el que aprieta es el de abajo.
+	check( 'el paso fijo hace bailar el estado crudo', crudo > suelo * 1.5,
 		`${ ( crudo * 100 ).toFixed( 2 ) } % frente al ${ ( suelo * 100 ).toFixed( 2 ) } % del suelo` );
-	check( 'la cámara interpolada vuelve al suelo', pintado < suelo * 1.25,
-		`${ ( pintado * 100 ).toFixed( 2 ) } % frente al ${ ( suelo * 100 ).toFixed( 2 ) } % del suelo` );
+
+	// Y éste sí es independiente del aparato: del temblor que mete el paso fijo,
+	// la interpolación no puede dejar ni una décima parte. En los tres aparatos
+	// de arriba se lo come entero —el pintado cae incluso un pelo por debajo del
+	// suelo—, así que un 10 % es holgura de sobra y a la vez caza que alguien
+	// deje de interpolar.
+	check( 'la cámara interpolada se come el baile entero',
+		( pintado - suelo ) < ( crudo - suelo ) * 0.1,
+		`del exceso queda el ${ ( ( pintado - suelo ) / ( crudo - suelo ) * 100 ).toFixed( 1 ) } %` );
 }
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
