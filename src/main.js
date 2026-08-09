@@ -165,6 +165,9 @@ async function loadAndFly( { demo = false } = {} ) {
 
 	if ( ! demo && ! config.apiKey ) {
 
+		// El aviso sale al pie del menú y señala un campo que puede estar detrás
+		// de otra pestaña. Sacarlo a la vista es parte del aviso.
+		menuSettings?.showTab( 'zona' );
 		dom.menuNote.textContent = 'Falta la API key de Google Maps Platform. Si sólo quieres probar los mandos y los fps, usa "Volar en la ciudad de prueba".';
 		return;
 
@@ -399,7 +402,9 @@ function openPause() {
 		onVoxelSize: realVoxelSize,
 		input,
 		onGamepadChange: refreshResume,
-		initialTab: pauseTab,
+		// El aviso de la pausa manda a mapear los cuatro ejes: la pestaña que los
+		// tiene no puede quedarse detrás de otra.
+		initialTab: input.hasControl ? pauseTab : 'mando',
 	} );
 
 	refreshResume();
