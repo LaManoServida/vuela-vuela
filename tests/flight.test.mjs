@@ -532,6 +532,74 @@ console.log( '\n== coste ==' );
 		perSecond < 15, `${ perSecond.toFixed( 2 ) } ms/s (${ perStep.toFixed( 2 ) } µs por paso a 1 kHz)` );
 }
 
+console.log( '\n== la hélice hace molinete ==' );
+{
+	/*
+	 * Cortar el gas subiendo deprisa dejaba el rotor parado en seco —de 21.350 a
+	 * 555 RPM en 100 ms— aunque le pasara el aire a 12 m/s, porque el par de la
+	 * hélice estaba forzado a no ser nunca negativo: sólo sabía frenar. Sin
+	 * vueltas no hay autoridad, la I se cargaba contra un error que no podía
+	 * corregir y la soltaba al volver los rotores: un bailecito de ida y vuelta
+	 * un segundo largo después de bajar el stick.
+	 *
+	 * Dos cosas lo arreglan y las dos son física que faltaba: la potencia va con
+	 * el flujo axial completo (P = T·(V+vi), no sólo T·vi), y la presión dinámica
+	 * con la velocidad resultante que ve la pala, no sólo con la tangencial.
+	 */
+	const caida = ( perturbar, gasFinal ) => {
+
+		const drone = makeQuad();
+		drone.setSpawn( 0, 900, 0 );
+
+		const gas = t => ( { roll: 0, pitch: 0, yaw: 0, throttle: t } );
+		const paso = ( t, ms ) => { for ( let i = 0; i < ms; i ++ ) drone.step( 0.001, gas( t ) ); };
+
+		paso( drone.hoverThrottle, 2000 );
+		drone.body.omega.z += perturbar;      // el desvío que da cualquier mando
+		paso( 1, 300 );                       // subir rápido
+		paso( gasFinal, 100 );                // y bajar rápido
+
+		let peor = 0, rpmMin = Infinity;
+		for ( let i = 0; i < 2500; i ++ ) {
+
+			paso( gasFinal, 1 );
+			peor = Math.max( peor, drone.body.omega.length() );
+			rpmMin = Math.min( rpmMin, drone.props[ 0 ].rpm );
+
+		}
+
+		return { grados: peor * 180 / Math.PI, rpmMin };
+
+	};
+
+	// La propiedad, medida donde vive: con el aire cruzando el disco y el rotor
+	// casi parado, el par tiene que ser NEGATIVO —el aire arrastra— y anularse a
+	// la velocidad de molinete libre, que para este paso y 12 m/s son unas 6.000
+	// RPM. Antes el par no podía ser negativo nunca y la hélice se paraba en seco.
+	const parA = ( rpm, flujo ) => {
+
+		const prop = new Prop( cloneFlight().prop );
+		for ( let i = 0; i < 200; i ++ ) { prop.omega = rpm * Math.PI / 30; prop.update( 0.001, flujo, 0, 1 ); }
+		return prop.torque;
+
+	};
+
+	check( 'el aire arrastra la hélice casi parada', parA( 950, 12 ) < 0,
+		`${ parA( 950, 12 ).toFixed( 4 ) } N·m a 950 RPM con 12 m/s` );
+	check( 'y deja de arrastrarla a la velocidad de molinete', parA( 12000, 12 ) > 0,
+		`${ parA( 12000, 12 ).toFixed( 4 ) } N·m a 12.000 RPM` );
+	check( 'quieto el aire, la hélice sólo frena', parA( 950, 0 ) > 0,
+		`${ parA( 950, 0 ).toFixed( 5 ) } N·m` );
+
+	// Y en el dron entero: cortar el gas del todo deja un resto pequeño —ahí los
+	// motores están al ralentí y no hay autoridad, como en un quad de verdad—,
+	// pero bajar a un gas de vuelo normal no puede excitar nada.
+	check( 'cortar el gas del todo no monta un bailecito', caida( 0.02, 0 ).grados < 30,
+		`${ caida( 0.02, 0 ).grados.toFixed( 0 ) } °/s` );
+	check( 'bajar a gas de sustentación no excita nada', caida( 0.02, 0.45 ).grados < 1,
+		`${ caida( 0.02, 0.45 ).grados.toFixed( 2 ) } °/s` );
+}
+
 console.log( '\n== mover el gas no puede desestabilizar el dron ==' );
 {
 	/*

@@ -124,13 +124,10 @@ export class Prop {
 		// Ángulo de ataque = paso geométrico − ángulo del flujo entrante.
 		// El downwash resta ángulo: por eso un rotor cargado da menos de lo que
 		// su paso prometería, y por eso caer sobre la propia estela mata el empuje.
+		const inflow = axialV + this.downwash * cfg.washFactor + this._vrsWash;
+
 		let alpha = this.pitchAngle;
-		if ( bladeSpeed > 0.05 ) {
-
-			const inflow = axialV + this.downwash * cfg.washFactor + this._vrsWash;
-			alpha = this.pitchAngle - inflow / bladeSpeed;
-
-		}
+		if ( bladeSpeed > 0.05 ) alpha = this.pitchAngle - inflow / bladeSpeed;
 
 		this.alpha = alpha;
 
@@ -143,8 +140,16 @@ export class Prop {
 		this.cl = cl;
 		this.cd = cd;
 
-		// --- Empuje: T = ½ρV²·Cl·A ---
-		let thrust = 0.5 * RHO * bladeSpeed * bladeSpeed * cl * this.liftArea;
+		// --- Empuje: T = ½ρW²·Cl·A ---
+		// W es la velocidad RESULTANTE que ve la pala, no sólo la tangencial: la
+		// pala también avanza contra el flujo axial. En estacionario el flujo axial
+		// son 15 m/s contra 115 de punta y esto cambia el empuje un 1,7 %, nada.
+		// Pero con el rotor casi parado y el aire cruzando a 12 m/s es al revés, y
+		// usar sólo la tangencial subestimaba las fuerzas nueve veces: por eso la
+		// hélice no llegaba a arrancar en molinete y se quedaba clavada a 785 RPM
+		// cuando debería girar a unas 6.000.
+		const relSpeedSq = bladeSpeed * bladeSpeed + inflow * inflow;
+		let thrust = 0.5 * RHO * relSpeedSq * cl * this.liftArea;
 
 		// Deformación de pala: a partir de cierta velocidad la pala flexa, pierde
 		// paso efectivo y el empuje deja de crecer como debería.
@@ -207,15 +212,27 @@ export class Prop {
 		const buffet = 1 + cfg.vrsBuffet * Math.sin( this._vrsPhase );
 		this._vrsWash = this.vrs * vh * cfg.vrsGain * buffet;
 
-		// --- Par resistente: τ = P/ω, con P inducida + de perfil ---
+		// --- Par: τ = P/ω, con P del flujo axial + de perfil ---
 		// El factor κ recoge lo que la teoría ideal no ve: reparto no uniforme del
 		// flujo y pérdidas de punta. Sin él la hélice saldría más eficiente de lo
 		// que puede ser ninguna hélice real.
-		const inducedPower = cfg.inducedPowerFactor * thrust * this.downwash;
+		//
+		// La potencia del flujo va con el flujo axial COMPLETO que atraviesa el
+		// disco, no sólo con la velocidad inducida: P = T·(V + vi). Aquí estaba
+		// puesto sólo `downwash`, y faltaba el término T·V, que es la potencia de
+		// ascenso. En estacionario V = 0 y no cambia nada; subiendo, la hélice pide
+		// esa potencia de más; y cayendo o con el gas cortado en pleno ascenso, el
+		// término se vuelve negativo y **el aire arrastra la hélice**. Eso es el
+		// molinete, y sin él el rotor se paraba en seco aunque le pasara el aire a
+		// 12 m/s: el mezclador se quedaba sin autoridad, la I se cargaba contra un
+		// error que no podía corregir y la soltaba de golpe al volver las vueltas.
+		//
+		// Por eso el par ya no se fuerza a ser positivo: una hélice que sólo sabe
+		// frenar no es una hélice.
+		const flowPower = cfg.inducedPowerFactor * thrust * inflow;
 		const profilePower = this.dragPowerFactor * cd * omega * omega * omega;
 
-		this.torque = omega > 0.05 ? ( inducedPower + profilePower ) / omega : 0;
-		if ( this.torque < 0 ) this.torque = 0;
+		this.torque = omega > 0.05 ? ( flowPower + profilePower ) / omega : 0;
 
 		return this.thrust;
 
