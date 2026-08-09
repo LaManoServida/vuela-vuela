@@ -297,7 +297,7 @@ export function buildSettings( container, config, { onChange, onEstimate, onVoxe
 	refreshEstimate();
 
 	// --- Vuelo: mando y controlador ---
-	container.appendChild( buildFlightPanel( config, onChange ) );
+	container.append( ...buildFlightPanel( config, onChange ) );
 
 	// --- Aparato ---
 	container.appendChild( buildHardwarePanel( config, onChange ) );
@@ -351,6 +351,9 @@ export function buildSettings( container, config, { onChange, onEstimate, onVoxe
 /**
  * Rates y PID, con los mismos nombres y unidades que el configurador de
  * Betaflight: lo que funcione aquí funciona en un dron de verdad y al revés.
+ *
+ * Devuelve cinco bloques y no uno: son treinta y tantos deslizadores, y de
+ * corrido no se distingue dónde acaba el ajuste fino y empieza la curva de gas.
  */
 export function buildFlightPanel( config, onChange ) {
 
@@ -423,148 +426,165 @@ export function buildFlightPanel( config, onChange ) {
 
 	refreshRates();
 
-	return h( 'fieldset', {}, [
-		h( 'legend', { text: 'Mando y controlador' } ),
+	return [
 
-		nestedSelect( 'Modo de vuelo', bf, 'mode', [
-			{ value: 'acro', label: 'Acro (rate) — FPV de verdad' },
-			{ value: 'angle', label: 'Angle — autonivelado' },
-			{ value: 'horizon', label: 'Horizon — nivela con el stick centrado' },
-		], onChange, 'mode' ),
+		h( 'fieldset', {}, [
+			h( 'legend', { text: 'Modo y rates' } ),
 
-		nestedSelect( 'Tipo de rates', bf, 'rateType', [
-			{ value: 'betaflight', label: 'Betaflight (RC rate + super)' },
-			{ value: 'actual', label: 'Actual (centro + máximo)' },
-		], () => refreshRates(), 'rates' ),
+			nestedSelect( 'Modo de vuelo', bf, 'mode', [
+				{ value: 'acro', label: 'Acro (rate) — FPV de verdad' },
+				{ value: 'angle', label: 'Angle — autonivelado' },
+				{ value: 'horizon', label: 'Horizon — nivela con el stick centrado' },
+			], onChange, 'mode' ),
 
-		h( 'div', { class: 'grid' }, rp ),
-		rateNote,
+			nestedSelect( 'Tipo de rates', bf, 'rateType', [
+				{ value: 'betaflight', label: 'Betaflight (RC rate + super)' },
+				{ value: 'actual', label: 'Actual (centro + máximo)' },
+			], () => refreshRates(), 'rates' ),
 
-		h( 'div', { class: 'pid-table' }, pidRows ),
-		h( 'p', {
-			class: 'note',
-			html: 'Los números son los del configurador de Betaflight y se aplican con sus mismas escalas internas. '
-				+ '<b>P</b> es la fuerza con que corrige, <b>I</b> lo que aguanta contra el viento, '
-				+ '<b>D</b> el amortiguamiento y <b>F</b> lo que se adelanta al stick. Empieza tocando P.',
-		} ),
-
-		h( 'div', { class: 'grid' }, [
-			nestedSlider( 'Anti-gravity', bf, 'antiGravityGain', {
-				...ui.antiGravity,
-				format: v => v === 0 ? 'apagado' : v.toFixed( 1 ),
-				onChange, notify: 'iterm',
-			} ),
-			nestedSlider( 'TPA (atenúa P y D con gas alto)', bf, 'tpaRate', {
-				...ui.tpaRate,
-				format: v => v === 0 ? 'apagada' : `${ Math.round( v * 100 ) } %`,
-				onChange, notify: 'tpa',
-			} ),
+			h( 'div', { class: 'grid' }, rp ),
+			rateNote,
 		] ),
-		h( 'p', {
-			class: 'note',
-			text: 'Anti-gravity sube la I mientras el gas cambia deprisa: sin ella el dron '
-				+ 'cabecea al dar y quitar gas de golpe.',
-		} ),
 
-		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
-			nestedCheckbox( 'Airmode', bf, 'airMode', onChange, 'airmode' ),
-			nestedCheckbox( 'I-term relax', bf, 'itermRelax', onChange, 'iterm' ),
+		h( 'fieldset', {}, [
+			h( 'legend', { text: 'PID' } ),
+
+			h( 'div', { class: 'pid-table' }, pidRows ),
+			h( 'p', {
+				class: 'note',
+				html: 'Los números son los del configurador de Betaflight y se aplican con sus mismas escalas internas. '
+					+ '<b>P</b> es la fuerza con que corrige, <b>I</b> lo que aguanta contra el viento, '
+					+ '<b>D</b> el amortiguamiento y <b>F</b> lo que se adelanta al stick. Empieza tocando P.',
+			} ),
+
+			h( 'div', { class: 'grid' }, [
+				nestedSlider( 'Anti-gravity', bf, 'antiGravityGain', {
+					...ui.antiGravity,
+					format: v => v === 0 ? 'apagado' : v.toFixed( 1 ),
+					onChange, notify: 'iterm',
+				} ),
+				nestedSlider( 'TPA (atenúa P y D con gas alto)', bf, 'tpaRate', {
+					...ui.tpaRate,
+					format: v => v === 0 ? 'apagada' : `${ Math.round( v * 100 ) } %`,
+					onChange, notify: 'tpa',
+				} ),
+			] ),
+			h( 'p', {
+				class: 'note',
+				text: 'Anti-gravity sube la I mientras el gas cambia deprisa: sin ella el dron '
+					+ 'cabecea al dar y quitar gas de golpe.',
+			} ),
+
+			h( 'div', { class: 'row', style: 'margin-top:10px' }, [
+				nestedCheckbox( 'Airmode', bf, 'airMode', onChange, 'airmode' ),
+				nestedCheckbox( 'I-term relax', bf, 'itermRelax', onChange, 'iterm' ),
+			] ),
 		] ),
 
 		// --- Lo que en Betaflight vive fuera de la pantalla principal ---
-		h( 'p', { class: 'note', style: 'margin-top:14px', text: 'Lo de abajo casi nunca se toca, pero estaba sólo en el fichero y ahora no.' } ),
+		h( 'fieldset', {}, [
+			h( 'legend', { text: 'Ajuste fino' } ),
+			h( 'p', { class: 'note', style: 'margin-top:0', text: 'Esto casi nunca se toca, pero estaba sólo en el fichero y ahora no.' } ),
 
-		h( 'div', { class: 'grid' }, [
-			nestedSlider( 'Expo de yaw', bf, 'rcYawExpo', {
-				...ui.rcYawExpo, format: v => v.toFixed( 2 ), onChange, notify: 'rates',
-			} ),
-			nestedSlider( 'Límite de inclinación (angle)', bf, 'angleLimit', {
-				...ui.angleLimit, format: v => `${ v }°`, onChange, notify: 'mode',
-			} ),
-			nestedSlider( 'Fuerza de autonivelado (angle)', bf, 'angleStrength', {
-				...ui.angleStrength, format: v => `${ v }`, onChange, notify: 'mode',
-			} ),
-			nestedSlider( 'Fuerza de autonivelado (horizon)', bf, 'horizonStrength', {
-				...ui.horizonStrength, format: v => `${ v }`, onChange, notify: 'mode',
-			} ),
-			nestedSlider( 'Gas al que empieza la TPA', bf, 'tpaBreakpoint', {
-				...ui.tpaBreakpoint, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'tpa',
-			} ),
-			nestedSlider( 'Corte del anti-gravity', bf, 'antiGravityCutoffHz', {
-				...ui.antiGravityHz, format: v => `${ v } Hz`, onChange, notify: 'iterm',
-			} ),
-			nestedSlider( 'Corte del I-term relax', bf, 'itermRelaxCutoffHz', {
-				...ui.itermRelaxHz, format: v => `${ v } Hz`, onChange, notify: 'iterm',
-			} ),
-			nestedSlider( 'Anti-windup de la I', bf, 'itermWindup', {
-				...ui.itermWindup, format: v => `${ v } % de mezcla`, onChange, notify: 'iterm',
-			} ),
-			nestedSlider( 'Ganancia de D-min', bf, 'dMinGain', {
-				...ui.dMinGain, format: v => `${ v }`, onChange, notify: 'pid',
-			} ),
-			nestedSlider( 'Adelanto de D-min', bf, 'dMinAdvance', {
-				...ui.dMinAdvance, format: v => `${ v }`, onChange, notify: 'pid',
-			} ),
-			nestedSlider( 'Filtro del giróscopo', bf, 'gyroLpfHz', {
-				...ui.gyroLpfHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
-			} ),
-			nestedSlider( 'Filtro de la D', bf, 'dtermLpfHz', {
-				...ui.dtermLpfHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
-			} ),
-			nestedSlider( 'Suavizado del mando', bf, 'rcSmoothingHz', {
-				...ui.rcSmoothingHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
-			} ),
-			nestedSlider( 'Tope de suma del PID', bf, 'pidSumLimit', {
-				...ui.pidSumLimit, format: v => `${ v }`, onChange, notify: 'pid',
-			} ),
-			nestedSlider( 'Tope de suma en yaw', bf, 'pidSumLimitYaw', {
-				...ui.pidSumLimitYaw, format: v => `${ v }`, onChange, notify: 'pid',
-			} ),
+			h( 'div', { class: 'grid' }, [
+				nestedSlider( 'Expo de yaw', bf, 'rcYawExpo', {
+					...ui.rcYawExpo, format: v => v.toFixed( 2 ), onChange, notify: 'rates',
+				} ),
+				nestedSlider( 'Límite de inclinación (angle)', bf, 'angleLimit', {
+					...ui.angleLimit, format: v => `${ v }°`, onChange, notify: 'mode',
+				} ),
+				nestedSlider( 'Fuerza de autonivelado (angle)', bf, 'angleStrength', {
+					...ui.angleStrength, format: v => `${ v }`, onChange, notify: 'mode',
+				} ),
+				nestedSlider( 'Fuerza de autonivelado (horizon)', bf, 'horizonStrength', {
+					...ui.horizonStrength, format: v => `${ v }`, onChange, notify: 'mode',
+				} ),
+				nestedSlider( 'Gas al que empieza la TPA', bf, 'tpaBreakpoint', {
+					...ui.tpaBreakpoint, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'tpa',
+				} ),
+				nestedSlider( 'Corte del anti-gravity', bf, 'antiGravityCutoffHz', {
+					...ui.antiGravityHz, format: v => `${ v } Hz`, onChange, notify: 'iterm',
+				} ),
+				nestedSlider( 'Corte del I-term relax', bf, 'itermRelaxCutoffHz', {
+					...ui.itermRelaxHz, format: v => `${ v } Hz`, onChange, notify: 'iterm',
+				} ),
+				nestedSlider( 'Anti-windup de la I', bf, 'itermWindup', {
+					...ui.itermWindup, format: v => `${ v } % de mezcla`, onChange, notify: 'iterm',
+				} ),
+				nestedSlider( 'Ganancia de D-min', bf, 'dMinGain', {
+					...ui.dMinGain, format: v => `${ v }`, onChange, notify: 'pid',
+				} ),
+				nestedSlider( 'Adelanto de D-min', bf, 'dMinAdvance', {
+					...ui.dMinAdvance, format: v => `${ v }`, onChange, notify: 'pid',
+				} ),
+				nestedSlider( 'Filtro del giróscopo', bf, 'gyroLpfHz', {
+					...ui.gyroLpfHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
+				} ),
+				nestedSlider( 'Filtro de la D', bf, 'dtermLpfHz', {
+					...ui.dtermLpfHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
+				} ),
+				nestedSlider( 'Suavizado del mando', bf, 'rcSmoothingHz', {
+					...ui.rcSmoothingHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
+				} ),
+				nestedSlider( 'Tope de suma del PID', bf, 'pidSumLimit', {
+					...ui.pidSumLimit, format: v => `${ v }`, onChange, notify: 'pid',
+				} ),
+				nestedSlider( 'Tope de suma en yaw', bf, 'pidSumLimitYaw', {
+					...ui.pidSumLimitYaw, format: v => `${ v }`, onChange, notify: 'pid',
+				} ),
+			] ),
 		] ),
 
-		h( 'p', { class: 'note', style: 'margin-top:14px', text: 'Curva de gas y ralentí. El ralentí dinámico sostiene unas vueltas mínimas para que las hélices no se calen al cortar gas: a 0 se apaga, y entonces cortar del todo en pleno ascenso desestabiliza el aparato.' } ),
+		h( 'fieldset', {}, [
+			h( 'legend', { text: 'Gas y ralentí' } ),
 
-		h( 'div', { class: 'grid' }, [
-			nestedSlider( 'Centro de la curva de gas', bf, 'throttleMid', {
-				...ui.throttleMid, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'gas',
-			} ),
-			nestedSlider( 'Expo de gas', bf, 'throttleExpo', {
-				...ui.throttleExpo, format: v => v === 0 ? 'lineal' : v.toFixed( 2 ), onChange, notify: 'gas',
-			} ),
-			nestedSlider( 'Tope de gas', bf, 'throttleCap', {
-				...ui.throttleCap, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'gas',
-			} ),
-			nestedSlider( 'Ralentí dinámico', bf, 'dynIdleMinRpm', {
-				...ui.dynIdleMinRpm, format: v => v === 0 ? 'apagado' : `${ v } RPM`, onChange, notify: 'gas',
-			} ),
-			nestedSlider( 'Ralentí de los motores', bf, 'motorIdle', {
-				...ui.motorIdle, format: v => `${ ( v * 100 ).toFixed( 1 ) } %`, onChange, notify: 'gas',
-			} ),
+			h( 'div', { class: 'grid' }, [
+				nestedSlider( 'Centro de la curva de gas', bf, 'throttleMid', {
+					...ui.throttleMid, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'gas',
+				} ),
+				nestedSlider( 'Expo de gas', bf, 'throttleExpo', {
+					...ui.throttleExpo, format: v => v === 0 ? 'lineal' : v.toFixed( 2 ), onChange, notify: 'gas',
+				} ),
+				nestedSlider( 'Tope de gas', bf, 'throttleCap', {
+					...ui.throttleCap, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'gas',
+				} ),
+				nestedSlider( 'Ralentí dinámico', bf, 'dynIdleMinRpm', {
+					...ui.dynIdleMinRpm, format: v => v === 0 ? 'apagado' : `${ v } RPM`, onChange, notify: 'gas',
+				} ),
+				nestedSlider( 'Ralentí de los motores', bf, 'motorIdle', {
+					...ui.motorIdle, format: v => `${ ( v * 100 ).toFixed( 1 ) } %`, onChange, notify: 'gas',
+				} ),
+			] ),
+			h( 'p', { class: 'note', text: 'El ralentí dinámico sostiene unas vueltas mínimas para que las hélices no se calen al cortar gas: a 0 se apaga, y entonces cortar del todo en pleno ascenso desestabiliza el aparato.' } ),
 		] ),
 
-		h( 'p', { class: 'note', style: 'margin-top:14px', text: 'Limitador de RPM: mantiene las vueltas por debajo de un tope, como el gobernador de Betaflight. Apagado en el aparato de referencia.' } ),
+		h( 'fieldset', {}, [
+			h( 'legend', { text: 'Limitador de RPM' } ),
 
-		h( 'div', { class: 'row' }, [
-			nestedCheckbox( 'Limitador de RPM', bf, 'rpmLimit', onChange, 'rpm' ),
+			h( 'div', { class: 'row' }, [
+				nestedCheckbox( 'Limitador de RPM', bf, 'rpmLimit', onChange, 'rpm' ),
+			] ),
+			h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
+				nestedSlider( 'RPM máximas', bf, 'rpmLimitValue', {
+					...ui.rpmLimitValue, format: v => `${ v } RPM`, onChange, notify: 'rpm',
+				} ),
+				nestedSlider( 'P del limitador', bf, 'rpmLimitP', {
+					...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
+				} ),
+				nestedSlider( 'I del limitador', bf, 'rpmLimitI', {
+					...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
+				} ),
+				nestedSlider( 'D del limitador', bf, 'rpmLimitD', {
+					...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
+				} ),
+				nestedSlider( 'Filtro del limitador', bf, 'rpmLimitLpfHz', {
+					...ui.rpmLimitLpfHz, format: v => `${ v } Hz`, onChange, notify: 'rpm',
+				} ),
+			] ),
+			h( 'p', { class: 'note', text: 'Mantiene las vueltas por debajo de un tope, como el gobernador de Betaflight. Apagado en el aparato de referencia.' } ),
 		] ),
-		h( 'div', { class: 'grid' }, [
-			nestedSlider( 'RPM máximas', bf, 'rpmLimitValue', {
-				...ui.rpmLimitValue, format: v => `${ v } RPM`, onChange, notify: 'rpm',
-			} ),
-			nestedSlider( 'P del limitador', bf, 'rpmLimitP', {
-				...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
-			} ),
-			nestedSlider( 'I del limitador', bf, 'rpmLimitI', {
-				...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
-			} ),
-			nestedSlider( 'D del limitador', bf, 'rpmLimitD', {
-				...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
-			} ),
-			nestedSlider( 'Filtro del limitador', bf, 'rpmLimitLpfHz', {
-				...ui.rpmLimitLpfHz, format: v => `${ v } Hz`, onChange, notify: 'rpm',
-			} ),
-		] ),
-	] );
+
+	];
 
 }
 
