@@ -1,7 +1,7 @@
 import { Raycaster, MathUtils } from 'three';
 
 import { config, quadOptions } from './config.js';
-import { createRenderer, createScene, createTiles, resize, fogDensityFor } from './world.js';
+import { createRenderer, createScene, createTiles, resize, fogDensityFor, applyUnlit } from './world.js';
 import { preloadRegion, sampleGround } from './preload.js';
 import { buildCollisionGrid } from './voxels.js';
 import { createGridView } from './gridView.js';
@@ -46,6 +46,12 @@ let abortController = null;
 let rafId = 0;
 let lastTime = 0;
 let pauseGamepad = null;   // panel de mapeo montado en la pausa
+
+// Lo que se ha tocado en la pausa y no se puede aplicar en el sitio. No se
+// aplica al mover el control —un deslizador pasa por decenas de valores en un
+// segundo y cada uno costaría una reconstrucción, o una sesión de Google— sino
+// al salir de la pausa, una sola vez y con su barra de progreso.
+const pending = { grid: false, reload: false };
 
 // ---------------------------------------------------------------------------
 // Pantalla de carga
@@ -163,6 +169,9 @@ async function loadAndFly( { demo = false } = {} ) {
 		return;
 
 	}
+
+	pending.grid = false;
+	pending.reload = false;
 
 	phase = 'loading';
 	dom.menu.hidden = true;
@@ -404,9 +413,13 @@ function refreshResume() {
 
 	dom.btnResume.disabled = ! ready;
 	dom.btnRespawn.disabled = ! ready;
-	dom.pauseNote.textContent = ready
-		? 'La zona ya está cargada en memoria: reanudar es instantáneo. Esc también reanuda.'
-		: 'Sin mando no se vuela. Conéctalo y mapea los cuatro ejes aquí abajo; la zona sigue cargada.';
+	dom.pauseNote.textContent = ! ready
+		? 'Sin mando no se vuela. Conéctalo y mapea los cuatro ejes aquí abajo; la zona sigue cargada.'
+		: pending.reload
+			? 'Has tocado algo que obliga a recargar la zona: al reanudar se recarga sola. Cuesta una de las 1.000 sesiones gratuitas del mes.'
+			: pending.grid
+				? 'Al reanudar se reconstruye la rejilla de colisiones con la resolución nueva. Son unos segundos y no cuesta cuota.'
+				: 'La zona ya está cargada en memoria: reanudar es instantáneo. Esc también reanuda.';
 
 }
 
@@ -512,6 +525,14 @@ function onLiveSettingChange( key ) {
 
 	}
 
+	// Materiales planos: se cambian en el sitio. No hace falta pedirle nada a
+	// Google, sólo decidir con qué shader se pinta lo que ya está en memoria.
+	if ( key === 'unlit' ) {
+
+		applyUnlit( { tiles: world.tiles, scene: world.scene, renderer: world.renderer, config } );
+
+	}
+
 	if ( key === 'showGrid' ) {
 
 		if ( world.gridView ) world.gridView.setVisible( config.showGrid );
@@ -533,10 +554,121 @@ function onLiveSettingChange( key ) {
 
 	if ( key === 'battery' ) drone.options.battery = config.battery;
 
+	// --- Lo que no se puede aplicar en el sitio se rehace solo ---
+	//
+	// Ningún control se mueve sin efecto. Si un ajuste obliga a reconstruir algo,
+	// se reconstruye al soltarlo, con su barra de progreso, sin que haya que ir a
+	// buscar un botón. Son dos costes muy distintos y por eso van por vías
+	// distintas: la rejilla se rehace con la geometría que ya está en memoria y no
+	// cuesta nada; la zona y el antialiasing abren sesión nueva con Google, que es
+	// una de las 1.000 del mes.
+	if ( key === 'voxelSize' ) {
+
+		pending.grid = true;
+		refreshResume();
+		return;
+
+	}
+
+	if ( RELOAD_KEYS.includes( key ) ) {
+
+		pending.reload = true;
+		refreshResume();
+		return;
+
+	}
+
 	// El bloque `flight.bf` (PID, rates, modo, filtros) lo lee el controlador en
 	// cada paso, así que esos cambios ya están aplicados. El hardware —masa,
 	// hélice, motor, batería— se derivó al construir el aparato y hay que rehacerlo.
 	if ( key === 'hardware' ) drone.refresh();
+
+}
+
+/**
+ * Salir de la pausa. Antes de volver al vuelo se aplica lo que quedara pendiente:
+ * una recarga de zona se lo lleva todo por delante, y si no, se rehace la rejilla.
+ */
+async function resumeFlight() {
+
+	if ( pending.reload ) {
+
+		pending.reload = false;
+		pending.grid = false;
+		reloadZone();
+		return;
+
+	}
+
+	if ( pending.grid ) {
+
+		pending.grid = false;
+		await rebuildGrid();
+
+	}
+
+	startFlying();
+
+}
+
+/** Ajustes que sólo se pueden aplicar volviendo a cargar la zona. */
+const RELOAD_KEYS = [ 'place', 'coords', 'radius', 'quality', 'antialias' ];
+
+/**
+ * Rehace la rejilla de colisiones sin tocar la escena.
+ *
+ * La geometría ya está descargada, así que esto es trabajo de CPU y nada más: ni
+ * una petición a Google. Se hace en pausa, con la pantalla de carga puesta,
+ * porque son segundos y `buildCollisionGrid` ya sabe trocearse para no congelar.
+ */
+async function rebuildGrid() {
+
+	const source = world.tiles || world.demo;
+	if ( ! source ) return;
+
+	abortController = new AbortController();
+
+	dom.pause.hidden = true;
+	dom.loading.hidden = false;
+	steps.init( [ 'collision' ] );
+
+	try {
+
+		world.gridView?.dispose();
+		world.grid = await buildCollisionGrid( { tiles: source, config, steps, signal: abortController.signal } );
+		world.gridView = createGridView( { grid: world.grid, scene: world.scene, config } );
+		world.gridView?.setVisible( config.showGrid );
+
+		drone.grid = config.collisions ? world.grid : null;
+
+	} catch ( error ) {
+
+		if ( error?.name !== 'AbortError' ) console.error( error );
+
+	} finally {
+
+		abortController = null;
+		dom.loading.hidden = true;
+		if ( phase === 'paused' ) dom.pause.hidden = false;
+
+	}
+
+}
+
+/**
+ * Vuelve a cargar la zona entera con los ajustes de ahora.
+ *
+ * Es lo mismo que pulsar «Cargar zona y volar», y cuesta lo mismo: una de las
+ * 1.000 sesiones gratuitas del mes. Se dispara al SOLTAR el control, nunca
+ * mientras se arrastra, para que mover un deslizador cueste una y no cincuenta.
+ */
+function reloadZone() {
+
+	if ( phase === 'menu' || phase === 'loading' ) return;
+
+	const demo = ! world.tiles;
+	closePause();
+    loadAndFly( { demo } );
 
 }
 
@@ -599,11 +731,11 @@ function init() {
 	dom.btnFly.addEventListener( 'click', () => loadAndFly( { demo: false } ) );
 	dom.btnDemo.addEventListener( 'click', () => loadAndFly( { demo: true } ) );
 	dom.btnCancel.addEventListener( 'click', () => abortController?.abort() );
-	dom.btnResume.addEventListener( 'click', startFlying );
+	dom.btnResume.addEventListener( 'click', resumeFlight );
 	dom.btnRespawn.addEventListener( 'click', () => {
 
 		drone.respawn();
-		startFlying();
+		resumeFlight();
 
 	} );
 	dom.btnMenu.addEventListener( 'click', () => {
@@ -628,7 +760,7 @@ function init() {
 		// Sin mando no se reanuda, igual que el botón «Reanudar» está apagado.
 		if ( ! input.hasControl ) return;
 
-		startFlying();
+		resumeFlight();
 
 	} );
 

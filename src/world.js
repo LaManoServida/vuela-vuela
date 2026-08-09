@@ -1,6 +1,6 @@
 import {
 	Scene, PerspectiveCamera, WebGLRenderer, FogExp2, Color, Vector3, Sphere,
-	MeshBasicMaterial, BackSide, ShaderMaterial, SphereGeometry, Mesh,
+	MeshBasicMaterial, MeshStandardMaterial, BackSide, ShaderMaterial, SphereGeometry, Mesh,
 	HemisphereLight, DirectionalLight, MathUtils, NoToneMapping, ACESFilmicToneMapping,
 } from 'three';
 import { TilesRenderer } from '3d-tiles-renderer';
@@ -142,15 +142,7 @@ export function createScene( config ) {
 	const sky = createSky();
 	scene.add( sky );
 
-	if ( ! config.unlit ) {
-
-		const hemi = new HemisphereLight( 0xcfe4ff, 0x50504a, 2.2 );
-		scene.add( hemi );
-		const sun = new DirectionalLight( 0xfff2df, 2.4 );
-		sun.position.set( 0.42, 0.68, 0.6 ).multiplyScalar( 1000 );
-		scene.add( sun );
-
-	}
+	// Las luces las pone `applyUnlit()`, que también sabe quitarlas en caliente.
 
 	const camera = new PerspectiveCamera( config.fov, 1, NEAR, FAR );
 	camera.rotation.order = 'YXZ';
@@ -241,7 +233,7 @@ export function createTiles( config, scene, camera, renderer ) {
 	tiles.setResolutionFromRenderer( camera, renderer );
 	scene.add( tiles.group );
 
-	if ( config.unlit ) attachUnlitConversion( tiles );
+	applyUnlit( { tiles, scene, renderer, config } );
 
 	return { tiles, regions, center };
 
@@ -252,31 +244,117 @@ export function createTiles( config, scene, camera, renderer ) {
  * Cambiar a MeshBasicMaterial da el aspecto exacto de Google Earth, elimina
  * variantes de shader (una sola compilación) y quita trabajo por píxel.
  */
-function attachUnlitConversion( tiles ) {
+function toBasic( material ) {
 
-	tiles.addEventListener( 'load-model', ( { scene } ) => {
+	return new MeshBasicMaterial( {
+		map: material.map || null,
+		color: material.color ? material.color.clone() : new Color( 0xffffff ),
+		vertexColors: material.vertexColors,
+		transparent: material.transparent,
+		alphaTest: material.alphaTest,
+		side: material.side,
+		fog: true,
+	} );
 
-		scene.traverse( child => {
+}
+
+function toLit( material ) {
+
+	return new MeshStandardMaterial( {
+		map: material.map || null,
+		color: material.color ? material.color.clone() : new Color( 0xffffff ),
+		vertexColors: material.vertexColors,
+		transparent: material.transparent,
+		alphaTest: material.alphaTest,
+		side: material.side,
+		roughness: 1,
+		metalness: 0,
+		fog: true,
+	} );
+
+}
+
+function convertLoaded( source, hacia ) {
+
+	const convertir = scene => scene.traverse( child => {
+
+		const material = child.material;
+		if ( ! material ) return;
+		if ( hacia === 'basic' && material.isMeshBasicMaterial ) return;
+		if ( hacia === 'lit' && ! material.isMeshBasicMaterial ) return;
+
+		child.material = hacia === 'basic' ? toBasic( material ) : toLit( material );
+		material.dispose();
+
+	} );
+
+	if ( source.forEachLoadedModel ) source.forEachLoadedModel( convertir );
+	else if ( source.group ) convertir( source.group );
+
+}
+
+/**
+ * Materiales planos, encendible y apagable en caliente.
+ *
+ * Los tiles fotogramétricos ya llevan la iluminación horneada en la textura.
+ * `MeshBasicMaterial` da el aspecto exacto de Google Earth, elimina variantes de
+ * shader (una sola compilación) y quita trabajo por píxel.
+ *
+ * Se puede cambiar sin recargar porque no hace falta pedirle nada a Google: la
+ * geometría y las texturas ya están en memoria, y esto sólo decide con qué
+ * shader se pintan. Convierte lo que ya está cargado, deja enganchada la
+ * conversión para lo que llegue después, enciende o apaga las luces y ajusta el
+ * mapeo de tonos.
+ */
+export function applyUnlit( { tiles, scene, renderer, config } ) {
+
+	const unlit = config.unlit;
+
+	if ( renderer ) renderer.toneMapping = unlit ? NoToneMapping : ACESFilmicToneMapping;
+
+	// Luces: sólo hacen falta cuando los materiales responden a ellas.
+	const existentes = scene.children.filter( o => o.isHemisphereLight || o.isDirectionalLight );
+
+	if ( unlit ) {
+
+		for ( const luz of existentes ) scene.remove( luz );
+
+	} else if ( existentes.length === 0 ) {
+
+		const hemi = new HemisphereLight( 0xcfe4ff, 0x50504a, 2.2 );
+		scene.add( hemi );
+		const sun = new DirectionalLight( 0xfff2df, 2.4 );
+		sun.position.set( 0.42, 0.68, 0.6 ).multiplyScalar( 1000 );
+		scene.add( sun );
+
+	}
+
+	if ( ! tiles ) return;
+
+	// Lo que llegue después. El oyente se guarda en el propio tileset para poder
+	// quitarlo: dejar dos enganchados convertiría de ida y vuelta cada tile.
+	if ( tiles._vvUnlit ) {
+
+		tiles.removeEventListener( 'load-model', tiles._vvUnlit );
+		tiles._vvUnlit = null;
+
+	}
+
+	if ( unlit ) {
+
+		tiles._vvUnlit = ( { scene: cargado } ) => cargado.traverse( child => {
 
 			const material = child.material;
 			if ( ! material || material.isMeshBasicMaterial ) return;
-
-			const basic = new MeshBasicMaterial( {
-				map: material.map || null,
-				color: material.color ? material.color.clone() : new Color( 0xffffff ),
-				vertexColors: material.vertexColors,
-				transparent: material.transparent,
-				alphaTest: material.alphaTest,
-				side: material.side,
-				fog: true,
-			} );
-
-			child.material = basic;
+			child.material = toBasic( material );
 			material.dispose();
 
 		} );
+		tiles.addEventListener( 'load-model', tiles._vvUnlit );
 
-	} );
+	}
+
+	convertLoaded( tiles, unlit ? 'basic' : 'lit' );
 
 }
 

@@ -336,10 +336,10 @@ export function buildSettings( container, config, { onChange, onEstimate } = {} 
 			} ),
 		] ),
 		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
-			checkbox( 'Antialiasing', config, 'antialias' ),
-			checkbox( 'Materiales planos (recomendado)', config, 'unlit' ),
+			checkbox( 'Antialiasing', config, 'antialias', onChange ),
+			checkbox( 'Materiales planos (recomendado)', config, 'unlit', onChange ),
 		] ),
-		h( 'p', { class: 'note', text: 'Todo lo de arriba se aplica al momento. Antialiasing y materiales planos no pueden: el primero se fija al crear el contexto de vídeo y el segundo al construir los materiales de cada tile, así que se aplican al recargar la zona.' } ),
+		h( 'p', { class: 'note', text: 'Los materiales planos se cambian en el sitio, sobre lo que ya está descargado. El antialiasing no puede: se fija al crear el contexto de vídeo, así que al reanudar se recarga la zona sola —y eso cuesta una de las 1.000 sesiones gratuitas del mes.' } ),
 	] ) );
 
 	return { refreshEstimate };
@@ -594,7 +594,7 @@ export function buildGamePanel( config, onChange ) {
 				...ui.gridRefresh, format: v => v === 0 ? 'al cambiar de celda' : `${ v.toFixed( 1 ) } s`, onChange,
 			} ),
 		] ),
-		h( 'p', { class: 'note', text: 'Alcance y refresco se aplican al momento. La resolución es lo único que no: la rejilla se construye recorriendo toda la geometría de la zona, y eso son segundos de trabajo que no caben en un frame — hay que recargar la zona.' } ),
+		h( 'p', { class: 'note', text: 'Alcance y refresco se aplican al momento. La resolución obliga a reconstruir la rejilla entera, así que se rehace al reanudar, con su barra: son segundos de CPU y no cuesta cuota, porque la geometría ya está en memoria.' } ),
 
 		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
 			labelledSlider( 'Velocidad que rompe el dron', config, 'crashSpeed', {
