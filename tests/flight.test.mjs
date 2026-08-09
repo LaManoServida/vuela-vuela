@@ -532,6 +532,33 @@ console.log( '\n== coste ==' );
 		perSecond < 15, `${ perSecond.toFixed( 2 ) } ms/s (${ perStep.toFixed( 2 ) } µs por paso a 1 kHz)` );
 }
 
+console.log( '\n== el aparato se rehace en caliente ==' );
+{
+	// El menú dice que los ajustes del aparato se aplican al soltar el deslizador,
+	// sin recargar la zona. El dron no tiene nada que ver con la escena: `refresh()`
+	// rehace lo que se derivó de los parámetros y deja el vuelo donde estaba.
+	const drone = makeQuad();
+	drone.setSpawn( 0, 300, 0 );
+	fly( drone, { throttle: drone.hoverThrottle }, 2 );
+
+	const antes = { ep: drone.thrustToWeight, y: drone.position.y, rpm: drone.averageRpm, gas: drone.hoverThrottle };
+
+	drone.params.frame.mass = 0.300;      // lo que hace el deslizador de masa
+	drone.refresh();
+
+	check( 'cambiar la masa cambia el empuje/peso al momento', drone.thrustToWeight > antes.ep * 1.5,
+		`${ antes.ep.toFixed( 2 ) } → ${ drone.thrustToWeight.toFixed( 2 ) }` );
+	check( 'sin teletransportar el dron', Math.abs( drone.position.y - antes.y ) < 1e-6,
+		`y=${ drone.position.y.toFixed( 2 ) }` );
+	check( 'y sin parar los rotores', Math.abs( drone.averageRpm - antes.rpm ) < 1,
+		`${ drone.averageRpm.toFixed( 0 ) } RPM` );
+
+	// Y se nota volando: con el gas que sustentaba ANTES, ahora sube.
+	fly( drone, { throttle: antes.gas }, 1 );
+	check( 'y el vuelo lo nota en el acto', drone.velocity.y > 0.5,
+		`vy=${ drone.velocity.y.toFixed( 2 ) } m/s con el gas de sustentación viejo` );
+}
+
 console.log( '\n== la hélice hace molinete ==' );
 {
 	/*

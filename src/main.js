@@ -502,6 +502,16 @@ function onLiveSettingChange( key ) {
 	// La vista de la rejilla es independiente de que la colisión esté activa:
 	// enseña contra qué se chocaría, y eso se quiere ver también volando a través.
 	// Lo que no puede es enseñar una rejilla que no se construyó al cargar.
+	// El alcance y el refresco se leen al montar la vista, así que se rehace. Es
+	// instantáneo: la rejilla no se toca, sólo la malla que la dibuja.
+	if ( key === 'gridRadius' || key === 'gridRefresh' ) {
+
+		world.gridView?.dispose();
+		world.gridView = createGridView( { grid: world.grid, scene: world.scene, config } );
+		world.gridView?.setVisible( config.showGrid );
+
+	}
+
 	if ( key === 'showGrid' ) {
 
 		if ( world.gridView ) world.gridView.setVisible( config.showGrid );

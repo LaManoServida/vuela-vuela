@@ -339,7 +339,7 @@ export function buildSettings( container, config, { onChange, onEstimate } = {} 
 			checkbox( 'Antialiasing', config, 'antialias' ),
 			checkbox( 'Materiales planos (recomendado)', config, 'unlit' ),
 		] ),
-		h( 'p', { class: 'note', text: 'Antialiasing y materiales planos sólo se aplican al recargar la zona.' } ),
+		h( 'p', { class: 'note', text: 'Todo lo de arriba se aplica al momento. Antialiasing y materiales planos no pueden: el primero se fija al crear el contexto de vídeo y el segundo al construir los materiales de cada tile, así que se aplican al recargar la zona.' } ),
 	] ) );
 
 	return { refreshEstimate };
@@ -594,7 +594,7 @@ export function buildGamePanel( config, onChange ) {
 				...ui.gridRefresh, format: v => v === 0 ? 'al cambiar de celda' : `${ v.toFixed( 1 ) } s`, onChange,
 			} ),
 		] ),
-		h( 'p', { class: 'note', text: 'La rejilla se construye al cargar la zona: cambiar su resolución obliga a recargar. Las colisiones y la vista sí se encienden y se apagan en caliente, siempre que la zona se cargara con la rejilla puesta.' } ),
+		h( 'p', { class: 'note', text: 'Alcance y refresco se aplican al momento. La resolución es lo único que no: la rejilla se construye recorriendo toda la geometría de la zona, y eso son segundos de trabajo que no caben en un frame — hay que recargar la zona.' } ),
 
 		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
 			labelledSlider( 'Velocidad que rompe el dron', config, 'crashSpeed', {
@@ -613,7 +613,7 @@ export function buildGamePanel( config, onChange ) {
 				...ui.respawnDelay, format: v => v === 0 ? 'al instante' : `${ v.toFixed( 1 ) } s`, onChange,
 			} ),
 		] ),
-		h( 'p', { class: 'note', text: 'La respuesta al choque se lee al construir el aparato: recarga la zona o reaparece para que un cambio se note.' } ),
+		h( 'p', { class: 'note', text: 'Se aplica al momento, en el siguiente choque.' } ),
 	] );
 
 }
@@ -635,7 +635,7 @@ export function buildHardwarePanel( config, onChange ) {
 		note.textContent = `${ f.name } · ${ ( f.frame.mass * 1000 ).toFixed( 0 ) } g `
 			+ `· ${ f.prop.diameterIn }×${ f.prop.pitchIn }" de ${ f.prop.blades } palas `
 			+ `· ${ f.motor.kv } KV · ${ f.battery.cells }S ${ ( f.battery.capacityAh * 1000 ).toFixed( 0 ) } mAh. `
-			+ `Los cambios de hardware se aplican al cargar la zona.`;
+			+ `Todo esto se aplica al soltar el deslizador: el aparato se rehace en el sitio, sin tocar la escena.`;
 		onChange?.( 'hardware' );
 
 	};
