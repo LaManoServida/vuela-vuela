@@ -269,11 +269,14 @@ export function buildSettings( container, config, {
  */
 export function buildZonePanel( config, onChange, onEstimate ) {
 
+	// Tapada de salida: es una credencial de pago, y el menú de arranque es lo
+	// que sale en cualquier captura o vídeo de pantalla del juego.
 	const keyInput = h( 'input', {
-		type: 'text',
+		type: 'password',
 		placeholder: 'AIza…',
 		value: config.apiKey,
 		spellcheck: 'false',
+		autocomplete: 'off',
 		oninput: e => {
 
 			config.apiKey = e.target.value.trim();
@@ -282,9 +285,26 @@ export function buildZonePanel( config, onChange, onEstimate ) {
 		},
 	} );
 
+	const keyEye = h( 'button', {
+		class: 'eye',
+		type: 'button',
+		text: '👁',
+		title: 'Ver la clave',
+		'aria-label': 'Ver la clave',
+		onclick: () => {
+
+			const ocultar = keyInput.type === 'text';
+			keyInput.type = ocultar ? 'password' : 'text';
+			keyEye.textContent = ocultar ? '👁' : '🙈';
+			keyEye.title = ocultar ? 'Ver la clave' : 'Ocultar la clave';
+			keyEye.setAttribute( 'aria-label', keyEye.title );
+
+		},
+	} );
+
 	const account = h( 'fieldset', {}, [
 		h( 'legend', { text: 'Cuenta de Google' } ),
-		field( 'API key de Google Maps Platform (Map Tiles API)', keyInput ),
+		field( 'API key de Google Maps Platform (Map Tiles API)', h( 'div', { class: 'with-eye' }, [ keyInput, keyEye ] ) ),
 		h( 'p', { class: 'note', html: 'Cada arranque consume <b>1</b> de las 1.000 peticiones de "root tileset" gratuitas al mes. Los tiles que se descarguen después no se facturan aparte. Ver <code>README.md</code> para crear la clave.' } ),
 	] );
 
