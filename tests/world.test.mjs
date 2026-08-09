@@ -4,7 +4,7 @@
  */
 import { Scene, Vector3, Group, Mesh, BufferGeometry, BufferAttribute } from 'three';
 import { createDemoWorld } from '../src/demoWorld.js';
-import { buildCollisionGrid } from '../src/voxels.js';
+import { buildCollisionGrid, effectiveVoxelSize } from '../src/voxels.js';
 import { collectSurfaceCells, createGridView } from '../src/gridView.js';
 import { Quad } from '../src/flight/quad.js';
 import { cloneFlight, quadOptions } from '../src/config.js';
@@ -275,6 +275,47 @@ console.log( '\n== el presupuesto de memoria no es negociable ==' );
 
 	check( 'cabe en el tope de 64 MB', g && g.bytes <= 64 * 1048576,
 		g ? `${ ( g.bytes / 1048576 ).toFixed( 0 ) } MB` : '' );
+}
+
+console.log( '\n== el menú puede saber qué resolución va a salir ==' );
+{
+	// El deslizador de la pausa enseña el tamaño real antes de reconstruir nada,
+	// y decide si merece la pena reconstruir. Si esta cuenta se desviara de la
+	// que hace el constructor, volvería a mentir —que es justo lo que pasaba.
+	for ( const pedido of [ 0.5, 1, 1.5, 2, 3, 5, 8 ] ) {
+
+		const previsto = effectiveVoxelSize( grid.box, pedido );
+		const real = ( await buildCollisionGrid( { tiles: demo, config: { ...config, voxelSize: pedido }, steps } ) ).voxelSize;
+
+		check( `pedir ${ pedido } m se predice exacto`, previsto === real,
+			`previsto ${ previsto.toFixed( 3 ) } m, real ${ real.toFixed( 3 ) } m` );
+		check( `pedir ${ pedido } m nunca afina de más`, real >= pedido );
+
+	}
+
+	// El recorte muerde dentro del recorrido del deslizador: es exactamente el
+	// caso en que el menú tiene algo que confesar, y sin él esta prueba pasaría
+	// sola sin comprobar nada.
+	const suelo = effectiveVoxelSize( grid.box, 0.5 );
+	check( 'el techo de memoria muerde en el extremo fino del deslizador', suelo > 0.5,
+		`0.5 m pedidos salen a ${ suelo.toFixed( 3 ) } m` );
+
+	// Y todo lo que no cabe da EXACTAMENTE lo mismo. Es lo que permite no
+	// reconstruir: antes, cada valor caía en uno ligeramente distinto y mover el
+	// deslizador por su mitad fina costaba segundos para dejarlo todo igual.
+	check( 'por debajo del suelo, todo lo pedido da el mismo vóxel',
+		[ 0.25, 0.5, 0.75, 1 ].every( v => effectiveVoxelSize( grid.box, v ) === suelo ),
+		`suelo ${ suelo.toFixed( 3 ) } m` );
+
+	// Y el suelo está pegado al techo, no un 25 % por encima como cuando se
+	// engordaba a saltos: un vóxel un 2 % más fino ya no cabría.
+	const bytesCon = size => Math.ceil( ( grid.box.max.x - grid.box.min.x ) / size )
+		* Math.ceil( ( grid.box.max.y - grid.box.min.y ) / size )
+		* Math.ceil( ( grid.box.max.z - grid.box.min.z ) / size ) / 8;
+
+	check( 'el suelo es el vóxel más fino que cabe, sin margen de sobra',
+		bytesCon( suelo ) <= 64 * 1048576 && bytesCon( suelo * 0.98 ) > 64 * 1048576,
+		`${ ( bytesCon( suelo ) / 1048576 ).toFixed( 0 ) } MB de 64` );
 }
 
 console.log( '\n== la ventana que dibuja la vista de la rejilla ==' );

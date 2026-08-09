@@ -21,6 +21,11 @@ export class VoxelGrid {
 		this.voxelSize = voxelSize;
 		this.inv = 1 / voxelSize;
 
+		// La caja pedida, antes de redondearla a un número entero de vóxeles. Se
+		// guarda porque es lo que hace falta para saber qué resoluciones caben en
+		// esta zona sin construir nada: ver `effectiveVoxelSize`.
+		this.box = new Box3( min.clone(), max.clone() );
+
 		this.nx = Math.max( 1, Math.ceil( ( max.x - min.x ) * this.inv ) );
 		this.ny = Math.max( 1, Math.ceil( ( max.y - min.y ) * this.inv ) );
 		this.nz = Math.max( 1, Math.ceil( ( max.z - min.z ) * this.inv ) );
@@ -103,6 +108,44 @@ export class VoxelGrid {
 const _box = new Box3();
 const _worldBox = new Box3();
 const _mat = new Matrix4();
+
+/**
+ * Tamaño de vóxel que se usa DE VERDAD para cubrir `box` con lo que se pide: lo
+ * pedido, o el vóxel más fino que cabe en el tope de memoria si lo pedido no cabe.
+ *
+ * La rejilla es un bitset denso sobre la zona entera, así que el coste crece con
+ * el cubo de lo fino que se pida: en una zona de 2,7 km, bajar de 2 a 1 m son
+ * ocho veces más celdas. El tope no es orientativo —vale más una rejilla basta
+ * que una pestaña muerta— y este cálculo no se rinde: con un número fijo de
+ * pasos, una extensión bastante mayor de lo previsto agotaba los intentos y la
+ * rejilla se construía igual, pidiendo gigabytes que el navegador no da.
+ *
+ * Se busca el suelo de la zona y no se engorda desde lo pedido, que es lo que se
+ * hacía antes, por dos motivos. Uno: multiplicar por pasos gordos desde donde
+ * cayera el deslizador se pasaba de largo hasta un 25 %, dando una rejilla más
+ * basta que la que cabía. Y dos, el que se notaba: cada valor pedido por debajo
+ * del suelo aterrizaba en uno ligeramente distinto —1,53 m, 1,56 m—, así que
+ * mover el deslizador por toda su mitad fina costaba una reconstrucción entera
+ * para dejar la rejilla visualmente idéntica. Ahora todo lo que no cabe da
+ * exactamente el mismo número, el menú lo enseña y no se reconstruye nada.
+ *
+ * Empieza por la solución continua (celdas ≈ volumen / lado³) y sube en pasos
+ * del 1 % hasta que el redondeo de cada eje también cabe. Termina siempre: las
+ * celdas bajan con el cubo del tamaño de vóxel.
+ */
+export function effectiveVoxelSize( box, requested ) {
+
+	const x = box.max.x - box.min.x;
+	const y = box.max.y - box.min.y;
+	const z = box.max.z - box.min.z;
+
+	const cellsFor = size => Math.ceil( x / size ) * Math.ceil( y / size ) * Math.ceil( z / size );
+
+	let size = Math.max( requested, Math.cbrt( x * y * z / ( 8 * MAX_BYTES ) ) );
+	while ( cellsFor( size ) / 8 > MAX_BYTES ) size *= 1.01;
+	return size;
+
+}
 
 /**
  * Recorre las mallas que el tileset está DIBUJANDO, no las que tiene cargadas.
@@ -190,19 +233,18 @@ export async function buildCollisionGrid( { tiles, config, steps, signal } ) {
 	const min = new Vector3( - half, minY, - half );
 	const max = new Vector3( half, maxY, half );
 
-	// Ajusta el tamaño de vóxel hasta caber en el presupuesto de memoria. El
-	// tope no es orientativo y el bucle no se rinde: con un número fijo de
-	// pasos, una extensión bastante mayor de lo previsto agotaba los intentos y
-	// la rejilla se construía igual, pidiendo gigabytes que el navegador no da.
-	// Vale más una rejilla basta que una pestaña muerta. Termina siempre: las
-	// celdas bajan con el cubo del tamaño de vóxel.
-	const cellsFor = size =>
-		Math.ceil( ( max.x - min.x ) / size ) *
-		Math.ceil( ( max.y - min.y ) / size ) *
-		Math.ceil( ( max.z - min.z ) / size );
+	const voxelSize = effectiveVoxelSize( { min, max }, config.voxelSize );
 
-	let voxelSize = config.voxelSize;
-	while ( cellsFor( voxelSize ) / 8 > MAX_BYTES ) voxelSize *= 1.25;
+	if ( voxelSize !== config.voxelSize ) {
+
+		console.warn(
+			`[vuela-vuela] la rejilla se ha pedido de ${ config.voxelSize.toFixed( 2 ) } m `
+			+ `y sale de ${ voxelSize.toFixed( 2 ) } m: más fina no cabe en `
+			+ `${ MAX_BYTES / 1048576 } MB en una zona de ${ ( ( max.x - min.x ) / 1000 ).toFixed( 1 ) } km. `
+			+ 'Para afinarla de verdad hay que reducir el radio de la zona.',
+		);
+
+	}
 
 	const grid = new VoxelGrid( min, max, voxelSize );
 

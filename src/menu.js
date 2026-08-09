@@ -186,7 +186,7 @@ function maxRate( bf, yaw = false ) {
  * al lado. Saber que un ajuste existe y que hace falta recargar es mejor que no
  * saber que existe.
  */
-export function buildSettings( container, config, { onChange, onEstimate } = {} ) {
+export function buildSettings( container, config, { onChange, onEstimate, onVoxelSize } = {} ) {
 
 	container.replaceChildren();
 
@@ -303,7 +303,7 @@ export function buildSettings( container, config, { onChange, onEstimate } = {} 
 	container.appendChild( buildHardwarePanel( config, onChange ) );
 
 	// --- Juego ---
-	container.appendChild( buildGamePanel( config, onChange ) );
+	container.appendChild( buildGamePanel( config, onChange, onVoxelSize ) );
 
 	// --- Entrada ---
 	container.appendChild( h( 'fieldset', {}, [
@@ -572,7 +572,19 @@ export function buildFlightPanel( config, onChange ) {
  * Reglas del juego: contra qué se choca, qué pasa al chocar y qué se dibuja.
  * Nada de esto es el aparato ni el mando.
  */
-export function buildGamePanel( config, onChange ) {
+export function buildGamePanel( config, onChange, onVoxelSize ) {
+
+	// Lo pedido y lo que sale. El techo de memoria de la rejilla puede engordar el
+	// vóxel, y callárselo dejaba el deslizador mintiendo: se movía entero por
+	// debajo del suelo de la zona sin que cambiara nada.
+	const voxelLabel = v => {
+
+		const real = onVoxelSize?.( v );
+		return real && Math.abs( real - v ) > 0.005
+			? `${ v.toFixed( 2 ) } m → ${ real.toFixed( 2 ) } m de verdad`
+			: `${ v.toFixed( 2 ) } m`;
+
+	};
 
 	return h( 'fieldset', {}, [
 		h( 'legend', { text: 'Juego' } ),
@@ -585,7 +597,7 @@ export function buildGamePanel( config, onChange ) {
 
 		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
 			labelledSlider( 'Resolución de la rejilla', config, 'voxelSize', {
-				...ui.voxelSize, format: v => `${ v.toFixed( 2 ) } m`, onChange,
+				...ui.voxelSize, format: voxelLabel, onChange,
 			} ),
 			labelledSlider( 'Alcance de la vista de rejilla', config, 'gridRadius', {
 				...ui.gridRadius, format: v => `${ v } m`, onChange,
@@ -595,6 +607,7 @@ export function buildGamePanel( config, onChange ) {
 			} ),
 		] ),
 		h( 'p', { class: 'note', text: 'Alcance y refresco se aplican al momento. La resolución obliga a reconstruir la rejilla entera, así que se rehace al reanudar, con su barra: son segundos de CPU y no cuesta cuota, porque la geometría ya está en memoria.' } ),
+		h( 'p', { class: 'note', text: 'La rejilla cubre la zona entera en celdas de tamaño fijo y tiene un techo de 64 MB, así que lo fino que se puede hilar depende del radio: si lo pedido no cabe, el vóxel engorda hasta que quepa y el deslizador enseña el tamaño que sale de verdad. Bajarlo más allá de ahí no cambia nada; para afinar hay que reducir el radio de la zona.' } ),
 
 		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
 			labelledSlider( 'Velocidad que rompe el dron', config, 'crashSpeed', {
@@ -718,15 +731,18 @@ export function buildHardwarePanel( config, onChange ) {
  * fichero. Ahora está todo en los dos sitios, y lo que necesita recargar lo dice
  * su propia nota. La zona ya cargada no se pierde por abrir la pausa.
  */
-export function buildPauseSettings( container, config, onChange ) {
+export function buildPauseSettings( container, config, onChange, onVoxelSize ) {
 
-	return buildSettings( container, config, { onChange } );
+	return buildSettings( container, config, { onChange, onVoxelSize } );
 
 }
 
 /** El menú de arranque: las mismas secciones, más la estimación de carga. */
 export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
 
+	// Sin `onVoxelSize`: aquí todavía no hay zona cargada, así que no hay caja que
+	// medir y no se puede saber qué resolución cabrá. El deslizador enseña lo
+	// pedido a secas, que es lo único cierto en ese momento.
 	return buildSettings( container, config, { onChange, onEstimate } );
 
 }

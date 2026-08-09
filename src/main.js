@@ -3,7 +3,7 @@ import { Raycaster, MathUtils } from 'three';
 import { config, quadOptions } from './config.js';
 import { createRenderer, createScene, createTiles, resize, fogDensityFor, applyUnlit } from './world.js';
 import { preloadRegion, sampleGround } from './preload.js';
-import { buildCollisionGrid } from './voxels.js';
+import { buildCollisionGrid, effectiveVoxelSize } from './voxels.js';
 import { createGridView } from './gridView.js';
 import { createDemoWorld } from './demoWorld.js';
 import { Quad } from './flight/quad.js';
@@ -389,7 +389,7 @@ function pauseFlight() {
 function openPause() {
 
 	dom.pause.hidden = false;
-	buildPauseSettings( dom.pauseSettings, config, onLiveSettingChange );
+	buildPauseSettings( dom.pauseSettings, config, onLiveSettingChange, realVoxelSize );
 
 	pauseGamepad?.dispose();
 	pauseGamepad = buildGamepadPanel( dom.pauseGamepad, config, input, { onChange: refreshResume } );
@@ -403,6 +403,19 @@ function closePause() {
 	dom.pause.hidden = true;
 	pauseGamepad?.dispose();
 	pauseGamepad = null;
+
+}
+
+/**
+ * Tamaño de vóxel que saldría de verdad al pedir `requested` en la zona cargada.
+ *
+ * Lo usa el deslizador de la pausa para no prometer lo que la memoria no va a
+ * dar. Sin rejilla en memoria no hay caja que medir: entonces no se sabe, y el
+ * menú enseña lo pedido a secas.
+ */
+function realVoxelSize( requested ) {
+
+	return world?.grid ? effectiveVoxelSize( world.grid.box, requested ) : null;
 
 }
 
@@ -580,9 +593,13 @@ function onLiveSettingChange( key ) {
 	// distintas: la rejilla se rehace con la geometría que ya está en memoria y no
 	// cuesta nada; la zona y el antialiasing abren sesión nueva con Google, que es
 	// una de las 1.000 del mes.
+	//
+	// Y pedir una resolución que el techo de memoria va a redondear a la que ya
+	// está puesta no es un cambio: reconstruir para dejar la rejilla idéntica son
+	// segundos tirados. El deslizador ya enseña el tamaño que saldría de verdad.
 	if ( key === 'voxelSize' ) {
 
-		pending.grid = true;
+		if ( realVoxelSize( config.voxelSize ) !== world.grid?.voxelSize ) pending.grid = true;
 		refreshResume();
 		return;
 
