@@ -594,8 +594,15 @@ console.log( '\n== la hélice hace molinete ==' );
 	// Y en el dron entero: cortar el gas del todo deja un resto pequeño —ahí los
 	// motores están al ralentí y no hay autoridad, como en un quad de verdad—,
 	// pero bajar a un gas de vuelo normal no puede excitar nada.
-	check( 'cortar el gas del todo no monta un bailecito', caida( 0.02, 0 ).grados < 30,
-		`${ caida( 0.02, 0 ).grados.toFixed( 0 ) } °/s` );
+	// Y el ralentí dinámico impide que las palas lleguen a calarse: por debajo de
+	// unas 1.500 RPM el amortiguamiento de alabeo cambia de signo —el rotor que
+	// baja ve más flujo y, con empuje negativo, en vez de frenar excita— y el dron
+	// se desestabiliza solo aunque el controlador esté perfecto.
+	const corte = caida( 0.02, 0 );
+	check( 'el ralentí dinámico no deja calarse a las hélices', corte.rpmMin > 2000,
+		`${ corte.rpmMin.toFixed( 0 ) } RPM con el gas a cero` );
+	check( 'cortar el gas del todo no monta un bailecito', corte.grados < 5,
+		`${ corte.grados.toFixed( 1 ) } °/s` );
 	check( 'bajar a gas de sustentación no excita nada', caida( 0.02, 0.45 ).grados < 1,
 		`${ caida( 0.02, 0.45 ).grados.toFixed( 2 ) } °/s` );
 }

@@ -34,6 +34,11 @@ const D_MIN_RANGE_HZ = 85;
 
 const ITERM_RELAX_SETPOINT_THRESHOLD = 40;
 
+// Ralentí dinámico: con qué fuerza persigue las RPM mínimas y cuánto puede
+// llegar a subir el suelo de los motores.
+const DYN_IDLE_GAIN = 4;
+const DYN_IDLE_MAX = 0.25;
+
 const clamp = ( v, lo, hi ) => v < lo ? lo : v > hi ? hi : v;
 
 /** Coeficiente de un PT1 (paso bajo de primer orden) para un dt dado. */
@@ -85,6 +90,8 @@ export class Betaflight {
 		this.motor = new Float32Array( this.motorCount );   // 0..1 tras idle
 		this.motorMix = new Float32Array( this.motorCount );
 		this.motorMixRange = 0;
+		this.minRpm = 0;                 // RPM del rotor más lento, las pone quad.js
+		this._dynIdle = 0;               // suplemento de ralentí acumulado
 		this.throttle = 0;
 		this.attitude = { roll: 0, pitch: 0 };      // grados, para modo angle
 		this.levelMode = 'off';
@@ -122,6 +129,7 @@ export class Betaflight {
 		this._govI = 0;
 		this._govPrevRpm = 0;
 		this._govPrevError = 0;
+		this._dynIdle = 0;
 		this.motor.fill( 0 );
 		this.motorMix.fill( 0 );
 
@@ -275,6 +283,22 @@ export class Betaflight {
 		const agActivity = Math.min( 1, this._agLpf / AG_FULL_RATE );
 		const itermAccelerator = 1 + cfg.antiGravityGain * agActivity;
 
+		// --- Anti-windup por saturación del mezclador ---
+		// Cuando la mezcla no cabe en el rango de los motores, el controlador ya no
+		// manda: pida lo que pida, los motores están contra el tope o contra el
+		// ralentí. Seguir integrando ahí carga la I contra un error que no se puede
+		// corregir, y al recuperar autoridad la suelta de golpe. Eso es lo que
+		// producía el bailecito de ida y vuelta al cortar el gas subiendo: los
+		// rotores caían al ralentí, la mezcla saturaba y la I se cargaba a solas.
+		//
+		// Betaflight lo resuelve escalando la integración con lo que le quede de
+		// margen al mezclador, y a partir de `itermWindup` la congela del todo. El
+		// rango es el del ciclo anterior, como en Betaflight: el mezclador corre
+		// después del PID.
+		const windupInv = 1 / Math.max( 1e-3, 1 - cfg.itermWindup / 100 );
+		const dynCi = dt * clamp( ( 1 - this.motorMixRange ) * windupInv, 0, 1 );
+
+
 		this.levelMode = cfg.mode === 'angle' ? 'angle' : cfg.mode === 'horizon' ? 'horizon' : 'off';
 
 		// --- Suavizado del enlace de radio ---
@@ -325,7 +349,7 @@ export class Betaflight {
 
 			// ---- I ----
 			const Ki = ITERM_SCALE * gains.i;
-			const iTerm = this.I[ axis ] + Ki * itermAccelerator * dt * relaxedError;
+			const iTerm = this.I[ axis ] + Ki * itermAccelerator * dynCi * relaxedError;
 			this.I[ axis ] = clamp( iTerm, - ITERM_LIMIT, ITERM_LIMIT );
 
 			// ---- D (sobre la medida, no sobre el error: evita el "D-kick") ----
@@ -449,8 +473,29 @@ export class Betaflight {
 		const normMax = mixMax * scale;
 		let t = clamp( throttle, - normMin, 1 - normMax );
 
-		// Rango útil por encima del ralentí: los motores nunca bajan de idle.
-		const idle = cfg.motorIdle;
+		// Ralentí dinámico: sostiene unas RPM mínimas por debajo de las cuales las
+		// hélices se calan.
+		//
+		// Con el gas cortado en pleno ascenso los rotores caían a 550 RPM, y ahí el
+		// aparato es inestable de verdad: con empuje negativo, el rotor que baja ve
+		// MÁS flujo y en vez de frenar el alabeo lo excita —el amortiguamiento
+		// aerodinámico cambia de signo—. El giro crecía solo de 0,1 a 19 °/s sin
+		// que el controlador pudiera hacer nada, porque con las palas caladas no
+		// hay par que repartir.
+		//
+		// Es la función `dyn_idle` de Betaflight, y existe por esto mismo: sube el
+		// suelo de los motores lo que haga falta para que el rotor más lento no
+		// baje de `dynIdleMinRpm`. En vuelo normal no interviene nunca.
+		let idle = cfg.motorIdle;
+
+		if ( cfg.dynIdleMinRpm > 0 ) {
+
+			const falta = ( cfg.dynIdleMinRpm - this.minRpm ) / cfg.dynIdleMinRpm;
+			this._dynIdle = clamp( this._dynIdle + falta * DYN_IDLE_GAIN * ( 1 / 1000 ), 0, DYN_IDLE_MAX );
+			idle += this._dynIdle;
+
+		}
+
 		const range = 1 - idle;
 
 		for ( let i = 0; i < n; i ++ ) {

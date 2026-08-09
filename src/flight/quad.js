@@ -410,6 +410,12 @@ export class Quad {
 
 		}
 
+		// Las RPM del rotor más lento, para el ralentí dinámico. Las del paso
+		// anterior: el mezclador corre después del controlador.
+		let minRpm = Infinity;
+		for ( let i = 0; i < 4; i ++ ) minRpm = Math.min( minRpm, this.props[ i ].rpm );
+		this.bf.minRpm = minRpm;
+
 		this.bf.update( dt, _sticks, _gyro );
 
 		if ( this.crashed ) this.bf.motor.fill( 0 );

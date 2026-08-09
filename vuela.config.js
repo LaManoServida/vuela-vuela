@@ -340,6 +340,13 @@ export default {
 			tpaBreakpoint: 0.65,           // fracción de gas; en BF es 1650 µs
 			antiGravityGain: 3.5,
 			antiGravityCutoffHz: 15,
+			// A partir de este % de saturación del mezclador la I deja de integrar.
+			// Cuando la mezcla no cabe en el rango de los motores el controlador ya
+			// no manda, y seguir integrando allí carga la I contra un error que no
+			// puede corregir: al recuperar autoridad la suelta de golpe. Bajarlo
+			// congela antes y es la palanca si algún transitorio se resiste.
+			itermWindup: 85,                   // el de Betaflight
+
 			itermRelax: true,
 			itermRelaxCutoffHz: 15,
 			dMinGain: 37,
@@ -366,6 +373,11 @@ export default {
 			throttleExpo: 0.0,
 			throttleCap: 1.0,
 			airMode: true,
+			// RPM por debajo de las cuales el ralentí sube solo para que las
+			// hélices no se calen. Cortar el gas del todo en pleno ascenso las
+			// dejaba a 550 RPM, y ahí el dron se desestabiliza solo. 0 lo apaga.
+			dynIdleMinRpm: 3500,               // `dyn_idle_min_rpm` de Betaflight
+
 			motorIdle: 0.04,               // minthrottle 1040 de tu loadout
 
 			// --- Limitador de RPM (el gobernador de BF; normalmente apagado) ---

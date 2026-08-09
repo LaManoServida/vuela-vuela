@@ -244,6 +244,10 @@ export const SCHEMA = block( {
 			antiGravityCutoffHz: pos(),
 			itermRelax: bool(),
 			itermRelaxCutoffHz: pos(),
+			// Por encima de este % de saturación del mezclador la I deja de
+			// integrar: sin tope, un motor contra el ralentí la carga a solas.
+			itermWindup: num( 0, 99 ),
+			dynIdleMinRpm: num( 0 ),           // 0 = sin ralentí dinámico
 			dMinGain: num( 0 ),
 			dMinAdvance: num( 0 ),
 			gyroLpfHz: pos(),
