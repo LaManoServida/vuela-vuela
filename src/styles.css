@@ -276,13 +276,17 @@ kbd {
 
 /* ---------- Mapeo de mando ---------- */
 .axes { display: grid; gap: 6px; }
-.axis-row { display: grid; grid-template-columns: 96px 1fr auto auto; gap: 8px; align-items: center; font-size: 12.5px; }
+/* La columna del número va a lo ancho fijo. Con `auto` se encogía y se
+   estiraba con el texto —el signo al cruzar el cero, el «topes ✓» al
+   aparecer— y la barra de al lado, que es `1fr`, se comía o soltaba ese
+   hueco en cada frame: a 0.01 oscilando, un parpadeo constante. */
+.axis-row { display: grid; grid-template-columns: 96px 1fr 160px auto; gap: 8px; align-items: center; font-size: 12.5px; }
 .axis-bar { height: 8px; background: rgba(255, 255, 255, 0.1); border-radius: 5px; position: relative; overflow: hidden; }
 .axis-bar > i { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--accent-2); border-radius: 2px; }
 /* La zona muerta: lo que el stick recorre sin que salga nada. */
 .axis-bar > i.dead { width: auto; background: rgba(255, 255, 255, 0.18); border-radius: 0; }
 .axis-bar > i.muerto { background: var(--dim); }
-.tag { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tag { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .snippet {
 	width: 100%;
 	margin: 8px 0;

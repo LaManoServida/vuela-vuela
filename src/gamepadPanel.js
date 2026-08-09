@@ -20,6 +20,13 @@ import { h } from './dom.js';
  * arriba: en un stick, morro arriba es tirar. Decir «arriba» aquí era
  * contradecirse, y dejaba el eje invertido a quien hiciera caso al literal.
  */
+/**
+ * Siempre con signo, para que el número no cambie de ancho al cruzar el cero.
+ * Un stick en reposo oscila entre −0.01 y +0.01 muchas veces por segundo, y sin
+ * el `+` eso es un carácter que aparece y desaparece en cada frame.
+ */
+const signed = v => `${ v < 0 ? '' : '+' }${ v.toFixed( 2 ) }`;
+
 const DIRS = {
 	roll: 'a la DERECHA',
 	pitch: 'hacia ATRÁS, tirando (morro arriba)',
@@ -375,7 +382,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 			if ( ! m ) row.tag.textContent = '—';
 			else if ( sweep ) row.tag.textContent = `eje ${ m.axis } · barrido ${ sweep.rec.span( row.axis.id ).toFixed( 2 ) }`;
-			else row.tag.textContent = `eje ${ m.axis } · ${ v.toFixed( 2 ) }${ hasRange( m ) ? ' · topes ✓' : '' }`;
+			else row.tag.textContent = `eje ${ m.axis } · ${ signed( v ) }${ hasRange( m ) ? ' · topes ✓' : '' }`;
 
 		}
 
