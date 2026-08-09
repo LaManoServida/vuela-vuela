@@ -512,8 +512,15 @@ function onLiveSettingChange( key ) {
 
 	}
 
-	// `crashSpeed` y la respuesta al choque no tienen control en el menú: se
-	// editan en el fichero y se leen al construir el dron.
+	// La respuesta al choque se copia a `drone.options` al construir el aparato,
+	// así que hay que empujarla a mano: si no, sus deslizadores se moverían sin
+	// efecto y no lo notaría nadie hasta el siguiente choque.
+	if ( [ 'crashSpeed', 'restitution', 'friction', 'maxSpin' ].includes( key ) ) {
+
+		drone.options[ key ] = config[ key ];
+
+	}
+
 	if ( key === 'battery' ) drone.options.battery = config.battery;
 
 	// El bloque `flight.bf` (PID, rates, modo, filtros) lo lee el controlador en

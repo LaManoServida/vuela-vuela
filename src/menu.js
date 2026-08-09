@@ -174,7 +174,19 @@ function maxRate( bf, yaw = false ) {
 
 // ---------------------------------------------------------------------------
 
-export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
+/**
+ * Todas las secciones de ajustes, en orden.
+ *
+ * Hay un solo constructor de menú y lo usan los dos sitios —el menú de arranque
+ * y la pausa—, porque tener dos listas distintas garantizaba que una de las dos
+ * se quedara vieja: la mitad de los ajustes sólo se podían tocar cerrando el
+ * juego y editando el fichero, que es justo lo que no queremos.
+ *
+ * Lo que no se puede aplicar en caliente no se esconde: se muestra con su aviso
+ * al lado. Saber que un ajuste existe y que hace falta recargar es mejor que no
+ * saber que existe.
+ */
+export function buildSettings( container, config, { onChange, onEstimate } = {} ) {
 
 	container.replaceChildren();
 
@@ -279,6 +291,7 @@ export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
 			} ),
 		] ),
 		estimate,
+		h( 'p', { class: 'note', text: 'La zona se congela al cargarla: cambiar esto en pausa no afecta al vuelo en curso, se aplica la próxima vez que cargues.' } ),
 	] ) );
 
 	refreshEstimate();
@@ -288,6 +301,22 @@ export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
 
 	// --- Aparato ---
 	container.appendChild( buildHardwarePanel( config, onChange ) );
+
+	// --- Juego ---
+	container.appendChild( buildGamePanel( config, onChange ) );
+
+	// --- Entrada ---
+	container.appendChild( h( 'fieldset', {}, [
+		h( 'legend', { text: 'Entrada' } ),
+		h( 'div', { class: 'grid' }, [
+			labelledSlider( 'Zona muerta de los sticks', config, 'deadzone', {
+				...ui.deadzone,
+				format: v => v === 0 ? 'sin zona muerta' : `${ ( v * 100 ).toFixed( 0 ) } %`,
+				onChange,
+			} ),
+		] ),
+		h( 'p', { class: 'note', text: 'Cuánto hay que mover un stick desde el centro para que empiece a contar. Súbela sólo si el mando tiembla en reposo: de más, se come la precisión alrededor del centro, que es donde se vuela.' } ),
+	] ) );
 
 	// --- Render ---
 	container.appendChild( h( 'fieldset', {}, [
@@ -440,10 +469,151 @@ export function buildFlightPanel( config, onChange ) {
 		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
 			nestedCheckbox( 'Airmode', bf, 'airMode', onChange, 'airmode' ),
 			nestedCheckbox( 'I-term relax', bf, 'itermRelax', onChange, 'iterm' ),
-			checkbox( 'Colisiones', config, 'collisions', onChange ),
-			checkbox( 'Ver la rejilla', config, 'showGrid', onChange ),
-			checkbox( 'Batería', config, 'battery', onChange ),
 		] ),
+
+		// --- Lo que en Betaflight vive fuera de la pantalla principal ---
+		h( 'p', { class: 'note', style: 'margin-top:14px', text: 'Lo de abajo casi nunca se toca, pero estaba sólo en el fichero y ahora no.' } ),
+
+		h( 'div', { class: 'grid' }, [
+			nestedSlider( 'Expo de yaw', bf, 'rcYawExpo', {
+				...ui.rcYawExpo, format: v => v.toFixed( 2 ), onChange, notify: 'rates',
+			} ),
+			nestedSlider( 'Límite de inclinación (angle)', bf, 'angleLimit', {
+				...ui.angleLimit, format: v => `${ v }°`, onChange, notify: 'mode',
+			} ),
+			nestedSlider( 'Fuerza de autonivelado (angle)', bf, 'angleStrength', {
+				...ui.angleStrength, format: v => `${ v }`, onChange, notify: 'mode',
+			} ),
+			nestedSlider( 'Fuerza de autonivelado (horizon)', bf, 'horizonStrength', {
+				...ui.horizonStrength, format: v => `${ v }`, onChange, notify: 'mode',
+			} ),
+			nestedSlider( 'Gas al que empieza la TPA', bf, 'tpaBreakpoint', {
+				...ui.tpaBreakpoint, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'tpa',
+			} ),
+			nestedSlider( 'Corte del anti-gravity', bf, 'antiGravityCutoffHz', {
+				...ui.antiGravityHz, format: v => `${ v } Hz`, onChange, notify: 'iterm',
+			} ),
+			nestedSlider( 'Corte del I-term relax', bf, 'itermRelaxCutoffHz', {
+				...ui.itermRelaxHz, format: v => `${ v } Hz`, onChange, notify: 'iterm',
+			} ),
+			nestedSlider( 'Anti-windup de la I', bf, 'itermWindup', {
+				...ui.itermWindup, format: v => `${ v } % de mezcla`, onChange, notify: 'iterm',
+			} ),
+			nestedSlider( 'Ganancia de D-min', bf, 'dMinGain', {
+				...ui.dMinGain, format: v => `${ v }`, onChange, notify: 'pid',
+			} ),
+			nestedSlider( 'Adelanto de D-min', bf, 'dMinAdvance', {
+				...ui.dMinAdvance, format: v => `${ v }`, onChange, notify: 'pid',
+			} ),
+			nestedSlider( 'Filtro del giróscopo', bf, 'gyroLpfHz', {
+				...ui.gyroLpfHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
+			} ),
+			nestedSlider( 'Filtro de la D', bf, 'dtermLpfHz', {
+				...ui.dtermLpfHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
+			} ),
+			nestedSlider( 'Suavizado del mando', bf, 'rcSmoothingHz', {
+				...ui.rcSmoothingHz, format: v => `${ v } Hz`, onChange, notify: 'filtros',
+			} ),
+			nestedSlider( 'Tope de suma del PID', bf, 'pidSumLimit', {
+				...ui.pidSumLimit, format: v => `${ v }`, onChange, notify: 'pid',
+			} ),
+			nestedSlider( 'Tope de suma en yaw', bf, 'pidSumLimitYaw', {
+				...ui.pidSumLimitYaw, format: v => `${ v }`, onChange, notify: 'pid',
+			} ),
+		] ),
+
+		h( 'p', { class: 'note', style: 'margin-top:14px', text: 'Curva de gas y ralentí. El ralentí dinámico sostiene unas vueltas mínimas para que las hélices no se calen al cortar gas: a 0 se apaga, y entonces cortar del todo en pleno ascenso desestabiliza el aparato.' } ),
+
+		h( 'div', { class: 'grid' }, [
+			nestedSlider( 'Centro de la curva de gas', bf, 'throttleMid', {
+				...ui.throttleMid, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'gas',
+			} ),
+			nestedSlider( 'Expo de gas', bf, 'throttleExpo', {
+				...ui.throttleExpo, format: v => v === 0 ? 'lineal' : v.toFixed( 2 ), onChange, notify: 'gas',
+			} ),
+			nestedSlider( 'Tope de gas', bf, 'throttleCap', {
+				...ui.throttleCap, format: v => `${ Math.round( v * 100 ) } %`, onChange, notify: 'gas',
+			} ),
+			nestedSlider( 'Ralentí dinámico', bf, 'dynIdleMinRpm', {
+				...ui.dynIdleMinRpm, format: v => v === 0 ? 'apagado' : `${ v } RPM`, onChange, notify: 'gas',
+			} ),
+			nestedSlider( 'Ralentí de los motores', bf, 'motorIdle', {
+				...ui.motorIdle, format: v => `${ ( v * 100 ).toFixed( 1 ) } %`, onChange, notify: 'gas',
+			} ),
+		] ),
+
+		h( 'p', { class: 'note', style: 'margin-top:14px', text: 'Limitador de RPM: mantiene las vueltas por debajo de un tope, como el gobernador de Betaflight. Apagado en el aparato de referencia.' } ),
+
+		h( 'div', { class: 'row' }, [
+			nestedCheckbox( 'Limitador de RPM', bf, 'rpmLimit', onChange, 'rpm' ),
+		] ),
+		h( 'div', { class: 'grid' }, [
+			nestedSlider( 'RPM máximas', bf, 'rpmLimitValue', {
+				...ui.rpmLimitValue, format: v => `${ v } RPM`, onChange, notify: 'rpm',
+			} ),
+			nestedSlider( 'P del limitador', bf, 'rpmLimitP', {
+				...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
+			} ),
+			nestedSlider( 'I del limitador', bf, 'rpmLimitI', {
+				...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
+			} ),
+			nestedSlider( 'D del limitador', bf, 'rpmLimitD', {
+				...ui.rpmLimitGain, format: v => `${ v }`, onChange, notify: 'rpm',
+			} ),
+			nestedSlider( 'Filtro del limitador', bf, 'rpmLimitLpfHz', {
+				...ui.rpmLimitLpfHz, format: v => `${ v } Hz`, onChange, notify: 'rpm',
+			} ),
+		] ),
+	] );
+
+}
+
+/**
+ * Reglas del juego: contra qué se choca, qué pasa al chocar y qué se dibuja.
+ * Nada de esto es el aparato ni el mando.
+ */
+export function buildGamePanel( config, onChange ) {
+
+	return h( 'fieldset', {}, [
+		h( 'legend', { text: 'Juego' } ),
+
+		h( 'div', { class: 'row' }, [
+			checkbox( 'Colisiones', config, 'collisions', onChange ),
+			checkbox( 'Batería', config, 'battery', onChange ),
+			checkbox( 'Ver la rejilla', config, 'showGrid', onChange ),
+		] ),
+
+		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
+			labelledSlider( 'Resolución de la rejilla', config, 'voxelSize', {
+				...ui.voxelSize, format: v => `${ v.toFixed( 2 ) } m`, onChange,
+			} ),
+			labelledSlider( 'Alcance de la vista de rejilla', config, 'gridRadius', {
+				...ui.gridRadius, format: v => `${ v } m`, onChange,
+			} ),
+			labelledSlider( 'Refresco de la vista de rejilla', config, 'gridRefresh', {
+				...ui.gridRefresh, format: v => v === 0 ? 'al cambiar de celda' : `${ v.toFixed( 1 ) } s`, onChange,
+			} ),
+		] ),
+		h( 'p', { class: 'note', text: 'La rejilla se construye al cargar la zona: cambiar su resolución obliga a recargar. Las colisiones y la vista sí se encienden y se apagan en caliente, siempre que la zona se cargara con la rejilla puesta.' } ),
+
+		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
+			labelledSlider( 'Velocidad que rompe el dron', config, 'crashSpeed', {
+				...ui.crashSpeed, format: v => `${ v.toFixed( 1 ) } m/s`, onChange,
+			} ),
+			labelledSlider( 'Rebote contra la pared', config, 'restitution', {
+				...ui.restitution, format: v => v.toFixed( 2 ), onChange,
+			} ),
+			labelledSlider( 'Rozamiento contra la pared', config, 'friction', {
+				...ui.friction, format: v => v.toFixed( 2 ), onChange,
+			} ),
+			labelledSlider( 'Volteo máximo de un golpe', config, 'maxSpin', {
+				...ui.maxSpin, format: v => `${ v } rad/s`, onChange,
+			} ),
+			labelledSlider( 'Espera antes de reaparecer', config, 'respawnDelay', {
+				...ui.respawnDelay, format: v => v === 0 ? 'al instante' : `${ v.toFixed( 1 ) } s`, onChange,
+			} ),
+		] ),
+		h( 'p', { class: 'note', text: 'La respuesta al choque se lee al construir el aparato: recarga la zona o reaparece para que un cambio se note.' } ),
 	] );
 
 }
@@ -510,8 +680,30 @@ export function buildHardwarePanel( config, onChange ) {
 				format: v => `${ ( v * 10000 ).toFixed( 0 ) } cm²`,
 				onChange: refresh, notify: 'drag',
 			} ),
+			nestedSlider( 'Palas por hélice', f.prop, 'blades', {
+				...ui.propBlades, format: v => `${ v }`,
+				onChange: refresh, notify: 'hardware',
+			} ),
+			nestedSlider( 'Capacidad de la batería', f.battery, 'capacityAh', {
+				...ui.batteryAh, format: v => `${ ( v * 1000 ).toFixed( 0 ) } mAh`,
+				onChange: refresh, notify: 'hardware',
+			} ),
+			nestedSlider( 'Gravedad', f.frame, 'gravityScale', {
+				...ui.gravityScale,
+				format: v => v === 1 ? 'normal' : `${ Math.round( v * 100 ) } %`,
+				onChange, notify: 'gravedad',
+			} ),
 		] ),
 		note,
+
+		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
+			nestedCheckbox( 'Frenado activo del variador', f.esc, 'braking', onChange, 'esc' ),
+			nestedCheckbox( 'Anillo de vórtices', f.prop, 'vortexRing', onChange, 'prop' ),
+		] ),
+		h( 'p', {
+			class: 'note',
+			text: 'El anillo de vórtices es caer sobre la propia estela y quedarse sin empuje. Es el único fenómeno del modelo que puede dejarte sin salida, y por eso viene apagado.',
+		} ),
 	] );
 
 }
@@ -519,76 +711,23 @@ export function buildHardwarePanel( config, onChange ) {
 // ---------------------------------------------------------------------------
 
 /**
- * Ajustes que se pueden tocar en pausa sin recargar la zona.
+ * La pausa monta exactamente las mismas secciones que el menú de arranque.
  *
- * Todo lo que hay aquí lo lee el modelo en cada paso, así que reanudar aplica
- * el cambio al instante. El hardware (masa, hélice, motor) no está: eso se
- * deriva al construir el aparato y vive en el menú principal.
+ * Antes era una selección reducida —«lo que se puede tocar sin recargar»— y eso
+ * dejaba la mitad de los ajustes sólo accesibles cerrando el juego y editando el
+ * fichero. Ahora está todo en los dos sitios, y lo que necesita recargar lo dice
+ * su propia nota. La zona ya cargada no se pierde por abrir la pausa.
  */
 export function buildPauseSettings( container, config, onChange ) {
 
-	const bf = config.flight.bf;
-	const rateNote = h( 'p', { class: 'note' } );
+	return buildSettings( container, config, { onChange } );
 
-	const refreshRates = () => {
+}
 
-		rateNote.textContent = `${ Math.round( maxRate( bf ) ) } °/s en roll y pitch, `
-			+ `${ Math.round( maxRate( bf, true ) ) } °/s en yaw.`;
-		onChange?.( 'rates' );
+/** El menú de arranque: las mismas secciones, más la estimación de carga. */
+export function buildMenu( container, config, { onChange, onEstimate } = {} ) {
 
-	};
-
-	refreshRates();
-
-	container.replaceChildren( h( 'fieldset', {}, [
-		h( 'legend', { text: 'Ajustes rápidos' } ),
-		h( 'div', { class: 'grid' }, [
-			nestedSelect( 'Modo', bf, 'mode', [
-				{ value: 'acro', label: 'Acro (rate)' },
-				{ value: 'angle', label: 'Angle (autonivelado)' },
-				{ value: 'horizon', label: 'Horizon' },
-			], onChange, 'mode' ),
-			labelledSlider( 'FOV', config, 'fov', {
-				...ui.fov, format: v => `${ v }°`, onChange,
-			} ),
-			labelledSlider( 'Inclinación de cámara', config, 'camTilt', {
-				...ui.camTilt, format: v => `${ v }°`, onChange,
-			} ),
-			labelledSlider( 'Escala de render', config, 'renderScale', {
-				...ui.renderScale, format: v => `${ Math.round( v * 100 ) }%`, onChange,
-			} ),
-			nestedSlider( 'RC rate', bf, 'rcRate', {
-				...ui.rcRate, format: v => v.toFixed( 2 ),
-				onChange: refreshRates, notify: 'rates',
-			} ),
-			nestedSlider( 'Super rate', bf, 'superRate', {
-				...ui.superRate, format: v => v.toFixed( 2 ),
-				onChange: refreshRates, notify: 'rates',
-			} ),
-			nestedSlider( 'Expo', bf, 'rcExpo', {
-				...ui.rcExpo, format: v => v.toFixed( 2 ),
-				onChange: refreshRates, notify: 'rates',
-			} ),
-			nestedSlider( 'Límite de inclinación (angle)', bf, 'angleLimit', {
-				...ui.angleLimit, format: v => `${ v }°`, onChange, notify: 'mode',
-			} ),
-			// La masa también está en el menú principal, pero ahí obliga a recargar
-			// la zona para probarla. Aquí se nota al reanudar: `refresh()` rehace lo
-			// que dependía de ella sin tocar posición ni velocidad.
-			nestedSlider( 'Masa con batería', config.flight.frame, 'mass', {
-				...ui.mass,
-				format: v => `${ ( v * 1000 ).toFixed( 0 ) } g`,
-				onChange, notify: 'hardware',
-			} ),
-		] ),
-		rateNote,
-		h( 'div', { class: 'row', style: 'margin-top:10px' }, [
-			nestedCheckbox( 'Airmode', bf, 'airMode', onChange, 'airmode' ),
-			checkbox( 'Colisiones', config, 'collisions', onChange ),
-			checkbox( 'Ver la rejilla', config, 'showGrid', onChange ),
-			checkbox( 'Batería', config, 'battery', onChange ),
-		] ),
-	] ) );
+	return buildSettings( container, config, { onChange, onEstimate } );
 
 }
 

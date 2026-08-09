@@ -440,7 +440,7 @@ export default {
 		// Compartido por las 12 casillas de la rejilla P/I/D/F.
 		pidGain:       { min: 0, max: 250, step: 1 },
 
-		mass:          { path: 'flight.frame.mass', min: 0.25, max: 1.4, step: 0.005 },
+		mass:          { path: 'flight.frame.mass', min: 0.05, max: 0.8, step: 0.005 },
 		armRadius:     { path: 'flight.frame.armRadius', min: 0.05, max: 0.30, step: 0.005 },
 		// Baja hasta 0.002 y con paso fino porque aquí abajo es donde vive un
 		// chasis limpio: el Oblivion son 0.00399 m² de frente, y con el mínimo en
@@ -451,6 +451,46 @@ export default {
 		propDiameter:  { path: 'flight.prop.diameterIn', min: 2, max: 7, step: 0.1 },
 		propPitch:     { path: 'flight.prop.pitchIn', min: 2, max: 7, step: 0.1 },
 		batteryCells:  { path: 'flight.battery.cells', min: 2, max: 8, step: 1 },
+		batteryAh:     { path: 'flight.battery.capacityAh', min: 0.3, max: 3, step: 0.05 },
+		propBlades:    { path: 'flight.prop.blades', min: 2, max: 5, step: 1 },
+		gravityScale:  { path: 'flight.frame.gravityScale', min: 0, max: 2, step: 0.05 },
+
+		// --- Juego ---
+		voxelSize:     { path: 'voxelSize', min: 0.5, max: 8, step: 0.25 },
+		crashSpeed:    { path: 'crashSpeed', min: 1, max: 20, step: 0.5 },
+		gridRadius:    { path: 'gridRadius', min: 10, max: 150, step: 5 },
+		gridRefresh:   { path: 'gridRefresh', min: 0, max: 5, step: 0.1 },
+		restitution:   { path: 'restitution', min: 0, max: 1, step: 0.02 },
+		friction:      { path: 'friction', min: 0, max: 1.5, step: 0.05 },
+		maxSpin:       { path: 'maxSpin', min: 0, max: 60, step: 1 },
+		respawnDelay:  { path: 'respawnDelay', min: 0, max: 10, step: 0.1 },
+		deadzone:      { path: 'deadzone', min: 0, max: 0.3, step: 0.01 },
+
+		// --- Controlador: lo que en Betaflight no está en la pantalla principal ---
+		rcYawExpo:     { path: 'flight.bf.rcYawExpo', min: 0, max: 0.9, step: 0.01 },
+		angleStrength: { path: 'flight.bf.angleStrength', min: 0, max: 100, step: 1 },
+		horizonStrength: { path: 'flight.bf.horizonStrength', min: 0, max: 100, step: 1 },
+		tpaBreakpoint: { path: 'flight.bf.tpaBreakpoint', min: 0, max: 0.95, step: 0.01 },
+		antiGravityHz: { path: 'flight.bf.antiGravityCutoffHz', min: 1, max: 50, step: 1 },
+		itermWindup:   { path: 'flight.bf.itermWindup', min: 30, max: 99, step: 1 },
+		itermRelaxHz:  { path: 'flight.bf.itermRelaxCutoffHz', min: 1, max: 50, step: 1 },
+		dMinGain:      { path: 'flight.bf.dMinGain', min: 0, max: 60, step: 1 },
+		dMinAdvance:   { path: 'flight.bf.dMinAdvance', min: 0, max: 200, step: 5 },
+		gyroLpfHz:     { path: 'flight.bf.gyroLpfHz', min: 50, max: 500, step: 5 },
+		dtermLpfHz:    { path: 'flight.bf.dtermLpfHz', min: 30, max: 300, step: 5 },
+		rcSmoothingHz: { path: 'flight.bf.rcSmoothingHz', min: 10, max: 200, step: 1 },
+		pidSumLimit:   { path: 'flight.bf.pidSumLimit', min: 200, max: 1000, step: 10 },
+		pidSumLimitYaw:{ path: 'flight.bf.pidSumLimitYaw', min: 200, max: 1000, step: 10 },
+		throttleMid:   { path: 'flight.bf.throttleMid', min: 0, max: 1, step: 0.01 },
+		throttleExpo:  { path: 'flight.bf.throttleExpo', min: 0, max: 1, step: 0.01 },
+		throttleCap:   { path: 'flight.bf.throttleCap', min: 0.2, max: 1, step: 0.01 },
+		dynIdleMinRpm: { path: 'flight.bf.dynIdleMinRpm', min: 0, max: 8000, step: 100 },
+		motorIdle:     { path: 'flight.bf.motorIdle', min: 0, max: 0.2, step: 0.005 },
+		rpmLimitValue: { path: 'flight.bf.rpmLimitValue', min: 5000, max: 40000, step: 500 },
+		rpmLimitLpfHz: { path: 'flight.bf.rpmLimitLpfHz', min: 1, max: 100, step: 1 },
+
+		// Compartido por las tres ganancias del limitador de RPM.
+		rpmLimitGain:  { min: 0, max: 100, step: 1 },
 	},
 
 };
