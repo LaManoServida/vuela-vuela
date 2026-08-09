@@ -129,14 +129,16 @@ export default {
 		hint: 'Gemfan 5146 · 4S 1300',
 
 		frame: {
-			// Puesto a mano: 250 g, clase sub-250.
+			// 353 g de aparato (ficha del Oblivion) + 176 g del pack: la batería
+			// es un componente aparte en la base de datos de Velocidrone, con su
+			// peso propio, así que la ficha no lo incluye.
 			//
-			// El Oblivion de referencia pesaba 0.529 —353 g de ficha + 176 g del
-			// pack, que en Velocidrone es un componente aparte con su peso propio—.
-			// El resto del bloque sigue describiendo ese aparato: la inercia de
-			// abajo NO se deriva de la masa, así que a 250 g gira con el mismo
-			// tensor que a 529. Es mucho más ligero pero no más ágil.
-			mass: 0.25,                        // kg con batería
+			// Que son 529 y no 353 lo confirma la inercia que declara el propio
+			// Velocidrone: con moi = 0.004 kg·m², un aparato de 353 g exigiría que
+			// su masa central tuviera un radio de giro de 119 mm —más largo que el
+			// brazo entero, 110— y eso no lo cumple ningún cuerpo compacto. Con
+			// 529 g salen 89 mm, que sí.
+			mass: 0.529,                       // kg con batería
 
 			// Tensor de inercia en ejes de cuerpo (x=cabeceo, y=guiñada, z=alabeo).
 			//
@@ -188,16 +190,12 @@ export default {
 			// RPM tardaban un mundo en cambiar: de ahí el rebote al soltar el
 			// stick de alabeo o cabeceo.
 			//
-			// 1428 KV con 0.1270 Ω eran la única pareja que daba el punto de
-			// funcionamiento del Oblivion —21.250 RPM y 775 g por motor— con el
-			// variador a fondo Y con una resistencia coherente con su propio KV
-			// (escala con 1/KV²).
-			//
-			// El KV está puesto a mano en 3800 y la resistencia no le acompaña:
-			// por esa misma escala le tocarían 0.0179 Ω. Con 0.1270 el motor tiene
-			// la resistencia de uno de 1428 KV, así que se hunde de tensión en
-			// cuanto pide corriente.
-			kv: 3800,                          // puesto a mano; el Oblivion daba 1428
+			// Estos dos son la única pareja que da el punto de funcionamiento del
+			// Oblivion —21.250 RPM y 775 g por motor— con el variador a fondo Y
+			// con una resistencia coherente con su propio KV (escala con 1/KV²).
+			// El aparato vuela igual en régimen; lo que cambia es que ahora tiene
+			// todo el margen de tensión disponible para los transitorios.
+			kv: 1428,
 			resistance: 0.1270,                // Ω por fase
 			noLoadCurrent: 0.7,                // FlEqMotorNoLoadCurrent
 			currentLimit: 50,                  // FlEqMotorILimit
@@ -378,7 +376,7 @@ export default {
 			// RPM por debajo de las cuales el ralentí sube solo para que las
 			// hélices no se calen. Cortar el gas del todo en pleno ascenso las
 			// dejaba a 550 RPM, y ahí el dron se desestabiliza solo. 0 lo apaga.
-			dynIdleMinRpm: 2700,               // `dyn_idle_min_rpm` de Betaflight
+			dynIdleMinRpm: 3500,               // `dyn_idle_min_rpm` de Betaflight
 
 			motorIdle: 0.04,               // minthrottle 1040 de tu loadout
 
