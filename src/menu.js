@@ -389,7 +389,7 @@ export function buildInputPanel( config, onChange ) {
 				onChange,
 			} ),
 		] ),
-		h( 'p', { class: 'note', text: 'Cuánto hay que mover un stick desde el centro para que empiece a contar. Súbela sólo si el mando tiembla en reposo: de más, se come la precisión alrededor del centro, que es donde se vuela.' } ),
+		h( 'p', { class: 'note', text: 'Cuánto hay que mover un stick desde el centro para que empiece a contar. Es la banda gris del centro de las barras de aquí arriba: muévela con los sticks a la vista y verás cuánto se come y si el temblor en reposo cabe dentro. Súbela sólo si tiembla: de más, se lleva la precisión alrededor del centro, que es donde se vuela. Al gas no se le aplica.' } ),
 	] );
 
 }

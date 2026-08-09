@@ -48,7 +48,11 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 	for ( const axis of AXES ) {
 
-		const bar = h( 'div', { class: 'axis-bar' }, [ h( 'i' ) ] );
+		// La banda va antes que la marca para que la marca quede encima cuando
+		// entre en ella: las dos están absolutamente posicionadas y manda el orden.
+		const dead = h( 'i', { class: 'dead', hidden: true } );
+		const marker = h( 'i' );
+		const bar = h( 'div', { class: 'axis-bar' }, [ dead, marker ] );
 		const tag = h( 'span', { class: 'tag', text: '—' } );
 
 		const detect = h( 'button', { text: 'Detectar', onclick: () => startSingle( axis ) } );
@@ -71,7 +75,7 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 			'inv',
 		] );
 
-		rows.push( { axis, bar: bar.firstChild, tag, invert: invert.firstChild } );
+		rows.push( { axis, bar: marker, dead, tag, invert: invert.firstChild } );
 		list.appendChild( h( 'div', { class: 'axis-row' }, [
 			h( 'span', { text: axis.label } ),
 			bar,
@@ -280,6 +284,8 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 				row.tag.textContent = '—';
 				row.bar.style.left = '50%';
+				row.bar.classList.remove( 'muerto' );
+				row.dead.hidden = true;
 				row.invert.checked = false;
 
 			}
@@ -346,6 +352,26 @@ export function buildGamepadPanel( container, config, input, { onChange } = {} )
 
 			row.bar.style.left = `${ ( v * 0.5 + 0.5 ) * 100 }%`;
 			row.invert.checked = !! m?.inv;
+
+			// La banda de zona muerta, para ver de un vistazo cuánto stick se
+			// está comiendo y si el temblor en reposo cabe dentro. El gas no pasa
+			// por ella —se remapea a 0..1 y ya—, así que pintársela sería mentir.
+			//
+			// Se lee `config.deadzone` cada frame a propósito: su deslizador está
+			// en esta misma pestaña, y así la banda crece y encoge mientras se
+			// mueve, con el stick a la vista.
+			const dz = row.axis.id === 'throttle' ? 0 : config.deadzone;
+
+			row.dead.hidden = ! ( dz > 0 );
+			if ( dz > 0 ) {
+
+				row.dead.style.left = `${ ( 0.5 - dz * 0.5 ) * 100 }%`;
+				row.dead.style.width = `${ dz * 100 }%`;
+
+			}
+
+			// Dentro de la banda el eje entrega cero: la marca lo dice apagándose.
+			row.bar.classList.toggle( 'muerto', dz > 0 && Math.abs( v ) < dz );
 
 			if ( ! m ) row.tag.textContent = '—';
 			else if ( sweep ) row.tag.textContent = `eje ${ m.axis } · barrido ${ sweep.rec.span( row.axis.id ).toFixed( 2 ) }`;
