@@ -10,7 +10,7 @@
  * falte llega al modelo como `undefined` y sale como NaN dos multiplicaciones
  * después: el dron aparece cayendo, o el alabeo deja de responder, o los sticks
  * dejan de hacer nada, y no se imprime un solo mensaje. Diagnosticar eso cuesta
- * una tarde; leer «falta flight.frame.mass» cuesta cinco segundos.
+ * una tarde; leer «falta flight.frame.dryMass» cuesta cinco segundos.
  *
  * Por eso el arranque falla, nombrando la ruta exacta, ante una clave ausente,
  * un tipo equivocado, una estructura incompleta (la inercia con dos componentes,
@@ -18,6 +18,7 @@
  * sabe calcular.
  */
 import baseConfig from '../vuela.config.js';
+import { deriveAircraft } from './flight/derive.js';
 
 // ===========================================================================
 //  Vocabulario del contrato
@@ -156,20 +157,19 @@ export const SCHEMA = block( {
 		hint: optional( text() ),
 
 		frame: block( {
-			mass: pos(),
-			// Tres componentes: el sólido rígido las lee por índice y con dos
-			// la física entera sale NaN en el primer paso.
-			inertia: list( pos(), { length: 3 } ),
+			// En seco, sin batería: el pack pesa según sus celdas y su capacidad
+			// y se suma aparte. `frame.mass` existe igual, pero se calcula.
+			dryMass: pos(),
 			armRadius: pos(),
 			armAngle: num( 0, 90 ),
-			dragArea: block( { x: num( 0 ), y: num( 0 ), z: num( 0 ) } ),
+			// El del aparato de referencia: el de verdad escala con el brazo.
+			dragAreaRef: block( { x: num( 0 ), y: num( 0 ), z: num( 0 ) } ),
 			angularDrag: num( 0 ),
 			gravityScale: num( 0 ),
 		} ),
 
 		motor: block( {
 			kv: pos(),
-			resistance: pos(),
 			noLoadCurrent: num( 0 ),
 			currentLimit: pos(),
 			ktEfficiency: pos( 1 ),
@@ -191,9 +191,7 @@ export const SCHEMA = block( {
 			diameterIn: pos(),
 			pitchIn: pos(),
 			blades: pos(),
-			chordMm: pos(),
 			hubFraction: num( 0, 0.9 ),
-			inertia: pos(),
 			cd0: num( 0 ),
 			dCdByCl2: num( 0 ),
 			clMax: num(),
@@ -680,6 +678,10 @@ function load() {
 	const cfg = structuredClone( baseConfig );
 
 	clampToRanges( cfg );
+
+	// Después de recortar a los rangos, no antes: lo que se deriva tiene que
+	// salir de los valores que de verdad van a usarse.
+	deriveAircraft( cfg.flight );
 
 	// La credencial no vive en el fichero de configuración, para que ese sí se
 	// pueda versionar. Ver `.env.example`.

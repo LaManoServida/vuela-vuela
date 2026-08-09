@@ -129,37 +129,32 @@ export default {
 		hint: 'Gemfan 5146 · 4S 1300',
 
 		frame: {
-			// 353 g de aparato (ficha del Oblivion) + 176 g del pack: la batería
-			// es un componente aparte en la base de datos de Velocidrone, con su
-			// peso propio, así que la ficha no lo incluye.
+			// 353 g de aparato, la ficha del Oblivion. La batería es un componente
+			// aparte en la base de datos de Velocidrone, con su peso propio (176 g
+			// el 4S 1300), y ahora se suma aparte también aquí: `frame.mass` sale
+			// de esto más lo que pese el pack que lleves.
 			//
-			// Que son 529 y no 353 lo confirma la inercia que declara el propio
-			// Velocidrone: con moi = 0.004 kg·m², un aparato de 353 g exigiría que
-			// su masa central tuviera un radio de giro de 119 mm —más largo que el
-			// brazo entero, 110— y eso no lo cumple ningún cuerpo compacto. Con
-			// 529 g salen 89 mm, que sí.
-			mass: 0.529,                       // kg con batería
+			// Que el total son 529 y no 353 lo confirma la inercia que declara el
+			// propio Velocidrone: con moi = 0.004 kg·m², un aparato de 353 g
+			// exigiría que su masa central tuviera un radio de giro de 119 mm —más
+			// largo que el brazo entero, 110— y eso no lo cumple ningún cuerpo
+			// compacto. Con 529 g salen 89 mm, que sí.
+			dryMass: 0.353,                    // kg sin batería
 
-			// Tensor de inercia en ejes de cuerpo (x=cabeceo, y=guiñada, z=alabeo).
+			// La inercia ya no se declara: sale de la masa y del brazo, en
+			// `src/flight/derive.js`. Está calibrada con el 0.00175 que Velocidrone
+			// declara para este chasis, que es la única de sus tres cifras (`moi`
+			// 0.00175, `bf_model_moi` 0.003, `vd_model_moi` 0.004) que describe un
+			// cuerpo que puede existir —descontados los cuatro motores a punta de
+			// brazo, deja la masa central con 50 mm de radio de giro, un pack de 4S
+			// y el stack, mientras que 0.004 exigía 89— y la que pone la respuesta
+			// donde está la de un 5" de verdad: 24 ms al 63 % del rate en alabeo,
+			// cuando con 0.004 eran 39.
 			//
-			// Velocidrone da tres cifras para el mismo chasis y no dice cuál usa:
-			// `moi` 0.00175, `bf_model_moi` 0.003 y `vd_model_moi` 0.004. Va la
-			// primera, la del propio componente, por dos razones.
-			//
-			// Una: es la única que describe un cuerpo que puede existir. Descontado
-			// lo que aportan los cuatro motores a punta de brazo (7.3e-4), 0.00175
-			// deja la masa central con 50 mm de radio de giro —un pack de 4S y el
-			// stack, exactamente eso—, mientras que 0.004 exigía 89 mm.
-			//
-			// Y dos: pone la respuesta donde está la de un 5" de verdad, 24 ms al
-			// 63 % del rate en alabeo, cuando con 0.004 eran 39.
-			//
-			// Simétrico, como lo declara Velocidrone. Un quad de verdad no lo es
-			// —en guiñada toda la masa cuenta a brazo completo, así que Izz ≈
-			// Ixx+Iyy— y de ahí salen 14 ms de guiñada, más de lo que gira ningún
-			// quad. Doblando la componente del medio (0.0035) queda honesta, en
-			// unos 29 ms, a cambio de perder ese giro instantáneo.
-			inertia: [ 0.00175, 0.00175, 0.00175 ],
+			// Simétrica en los tres ejes, como la declara Velocidrone. Un quad de
+			// verdad no lo es —en guiñada toda la masa cuenta a brazo completo, así
+			// que Izz ≈ Ixx+Iyy— y de ahí salen 14 ms de guiñada, más de lo que gira
+			// ningún quad.
 
 			armRadius: 0.110,                  // m del centro al motor
 			armAngle: 45,                      // grados desde el morro
@@ -170,7 +165,9 @@ export default {
 			// Es EL número que separaba a los dos aparatos. El de antes (0.018 de
 			// frente) era 4,5 veces éste y dejaba la punta en 118 km/h: por eso
 			// se inclinaba y no iba.
-			dragArea: { x: 0.00742, y: 0.014, z: 0.00399 },
+			//
+			// Es la del aparato de referencia: la de verdad escala con el brazo.
+			dragAreaRef: { x: 0.00742, y: 0.014, z: 0.00399 },
 
 			angularDrag: 0.001,                // angular_drag_coeff
 			gravityScale: 1.0,
@@ -196,7 +193,10 @@ export default {
 			// El aparato vuela igual en régimen; lo que cambia es que ahora tiene
 			// todo el margen de tensión disponible para los transitorios.
 			kv: 1428,
-			resistance: 0.1270,                // Ω por fase
+
+			// La resistencia ya no se declara: sale del KV con 1/KV², calibrada en
+			// los 0.1270 Ω que hacen pareja con estos 1428.
+
 			noLoadCurrent: 0.7,                // FlEqMotorNoLoadCurrent
 			currentLimit: 50,                  // FlEqMotorILimit
 
@@ -251,9 +251,11 @@ export default {
 			diameterIn: 5.1,
 			pitchIn: 4.6,
 			blades: 3,
-			chordMm: 15,
 			hubFraction: 0.20,
-			inertia: 2.8e-6,                   // kg·m²
+
+			// Cuerda e inercia ya no se declaran: salen del diámetro y del número
+			// de palas por semejanza geométrica, calibradas en los 15 mm y los
+			// 2.8e-6 kg·m² de esta hélice.
 
 			// Polar de la pala (hélice 407, la Gemfan 5146).
 			cd0: 0.03,                         // FlEqPropCd0
@@ -440,12 +442,12 @@ export default {
 		// Compartido por las 12 casillas de la rejilla P/I/D/F.
 		pidGain:       { min: 0, max: 250, step: 1 },
 
-		mass:          { path: 'flight.frame.mass', min: 0.05, max: 0.8, step: 0.005 },
+		mass:          { path: 'flight.frame.dryMass', min: 0.05, max: 0.8, step: 0.005 },
 		armRadius:     { path: 'flight.frame.armRadius', min: 0.05, max: 0.30, step: 0.005 },
 		// Baja hasta 0.002 y con paso fino porque aquí abajo es donde vive un
 		// chasis limpio: el Oblivion son 0.00399 m² de frente, y con el mínimo en
 		// 0.004 el deslizador no llegaba ni a su propio valor.
-		dragFront:     { path: 'flight.frame.dragArea.z', min: 0.002, max: 0.06, step: 0.0005 },
+		dragFront:     { path: 'flight.frame.dragAreaRef.z', min: 0.002, max: 0.06, step: 0.0005 },
 		motorKv:       { path: 'flight.motor.kv', min: 1200, max: 4000, step: 10 },
 		motorCurrent:  { path: 'flight.motor.currentLimit', min: 10, max: 60, step: 1 },
 		propDiameter:  { path: 'flight.prop.diameterIn', min: 2, max: 7, step: 0.1 },

@@ -5,6 +5,7 @@ import { Betaflight, QUAD_X, ROLL, PITCH, YAW } from './betaflight.js';
 import { Prop, RHO } from './prop.js';
 import { Motor } from './motor.js';
 import { Battery } from './battery.js';
+import { deriveAircraft } from './derive.js';
 
 const GRAVITY = 9.81;
 const RAD2DEG = 180 / Math.PI;
@@ -82,6 +83,13 @@ export class Quad {
 			}
 
 		}
+
+		// Antes de tocar nada: las magnitudes acopladas se calculan de las que
+		// mandan sobre ellas. Aquí y en `refresh()` son los dos únicos sitios,
+		// porque son los dos momentos en que los parámetros pueden haber
+		// cambiado —y los tests construyen `Quad` con parámetros retocados a
+		// mano, que también tienen que salir coherentes—.
+		deriveAircraft( params );
 
 		this.body = new RigidBody( {
 			mass: params.frame.mass,
@@ -182,6 +190,8 @@ export class Quad {
 	refresh() {
 
 		const p = this.params;
+
+		deriveAircraft( p );
 
 		this.body.setMass( p.frame.mass );
 		this.body.setInertia( p.frame.inertia );

@@ -136,7 +136,7 @@ console.log( '\n== volar contra una pared ==' );
 		// Sin arrastre aerodinámico: aquí se prueba la colisión, no la
 		// aerodinámica, y con arrastre el dron frenaría antes de llegar.
 		const drone = makeQuad( p => {
-			p.frame.dragArea = { x: 0, y: 0, z: 0 };
+			p.frame.dragAreaRef = { x: 0, y: 0, z: 0 };
 		} );
 		drone.grid = grid;
 		drone.setSpawn( target - 60, 20, lane );

@@ -431,11 +431,28 @@ console.log( '\n== el hardware manda de verdad ==' );
 	// cada uno tiene que llegar al vuelo por el camino correcto.
 	const base = makeQuad();
 
-	const heavy = makeQuad( p => { p.frame.mass *= 1.5; } );
+	// Se mueve la masa EN SECO, que es la que se declara: `frame.mass` sale de
+	// ella más el pack, y escribir encima de un valor derivado no hace nada
+	// porque `deriveAircraft` lo pisa al construir el aparato.
+	const heavy = makeQuad( p => { p.frame.dryMass *= 1.5; } );
 	check( 'más masa baja el empuje/peso', heavy.thrustToWeight < base.thrustToWeight * 0.75,
 		`${ base.thrustToWeight.toFixed( 2 ) } → ${ heavy.thrustToWeight.toFixed( 2 ) }` );
 	check( 'y sube el gas de sustentación', heavy.hoverThrottle > base.hoverThrottle,
 		`${ ( base.hoverThrottle * 100 ).toFixed( 0 ) } → ${ ( heavy.hoverThrottle * 100 ).toFixed( 0 ) } %` );
+
+	// Y ahora la masa llega a la INERCIA, no sólo al empuje/peso. Se mide a los
+	// 15 ms, cuando el giro todavía está limitado por el par y no por el tope
+	// del controlador: a esas alturas el más pesado ha girado menos.
+	const alabeoA15ms = q => {
+
+		fly( q, { roll: 1, throttle: q.hoverThrottle }, 0.015 );
+		return Math.abs( q.body.omega.z );
+
+	};
+
+	check( 'más masa es también más inercia, no sólo menos empuje/peso',
+		alabeoA15ms( makeQuad( p => { p.frame.dryMass *= 2; } ) ) < alabeoA15ms( makeQuad() ),
+		`${ alabeoA15ms( makeQuad() ).toFixed( 2 ) } → ${ alabeoA15ms( makeQuad( p => { p.frame.dryMass *= 2; } ) ).toFixed( 2 ) } rad/s` );
 
 	// Ojo con lo que se puede afirmar aquí: «una hélice mayor da más empuje» NO
 	// es cierto en el aparato entero. Sólo lo es a vueltas iguales, y una hélice
@@ -456,25 +473,40 @@ console.log( '\n== el hardware manda de verdad ==' );
 	// El mismo motor, sólo más tensión: antes se le cambiaba también el KV a un
 	// 1550 fijo, que era el que le pegaba al aparato de entonces. Con otro
 	// aparato ese número mezclaba dos cambios y podía dar la vuelta al resultado.
-	const sixS = makeQuad( p => { p.battery.cells = 6; } );
+	//
+	// Con la misma energía, y por tanto el mismo peso de pack: desde que el pack
+	// pesa según celdas × amperios-hora, un 6S 1300 pesa la mitad más y el
+	// aparato entero sustenta a más vueltas. Eso taparía justo lo que se quiere
+	// ver aquí, que es el efecto de la tensión y nada más.
+	const sixS = makeQuad( p => { p.battery.cells = 6; p.battery.capacityAh *= 4 / 6; } );
 	check( 'el régimen de sustentación no depende de la batería',
 		Math.abs( sixS.hoverRpm - base.hoverRpm ) < 1,
 		`${ sixS.hoverRpm.toFixed( 0 ) } vs ${ base.hoverRpm.toFixed( 0 ) } RPM` );
 	check( 'pero un 6S llega con menos gas', sixS.hoverThrottle < base.hoverThrottle,
 		`${ ( base.hoverThrottle * 100 ).toFixed( 0 ) } → ${ ( sixS.hoverThrottle * 100 ).toFixed( 0 ) } %` );
 
-	// A los 15 ms, no a los 60: lo que se compara es el PAR, y el par sólo se
-	// lee mientras el giro está limitado por él. Pasados 40 ms este aparato ya
-	// ha llegado al rate que pide el stick y los dos brazos miden lo mismo —el
-	// tope del controlador— por mucho que uno haga casi el doble de par.
-	const longArm = makeQuad( p => { p.frame.armRadius *= 1.6; } );
+	// A los 15 ms, no a los 60: lo que se compara es el arranque del giro, y sólo
+	// se lee mientras está limitado por el par. Pasados 40 ms este aparato ya ha
+	// llegado al rate que pide el stick y los dos brazos miden lo mismo, el tope
+	// del controlador.
+	//
+	// Un brazo más largo da más par —el empuje actúa más lejos, así que el par va
+	// CON el brazo— pero también más inercia, y ésa va con su CUADRADO. El neto
+	// es que el aparato más grande arranca el giro más despacio, en proporción
+	// inversa al brazo: ×1.6 de brazo es ×1/1.6 de aceleración angular.
+	//
+	// Antes esta prueba afirmaba lo contrario, que brazos largos giran más, y era
+	// cierta sólo porque la inercia no seguía al brazo. La mitad de la física
+	// estaba enchufada y la otra mitad no.
 	const rollRate = q => {
 		fly( q, { roll: 1, throttle: q.hoverThrottle }, 0.015 );
 		return Math.abs( q.body.omega.z );
 	};
-	check( 'brazos más largos dan más par de alabeo',
-		rollRate( makeQuad( p => { p.frame.armRadius *= 1.6; } ) ) > rollRate( makeQuad() ),
-		`${ rollRate( makeQuad() ).toFixed( 2 ) } → ${ rollRate( longArm ).toFixed( 2 ) } rad/s` );
+	const corto = rollRate( makeQuad() );
+	const largo = rollRate( makeQuad( p => { p.frame.armRadius *= 1.6; } ) );
+	check( 'brazos más largos dan más par, pero aún más inercia: giran más despacio',
+		largo < corto && Math.abs( largo / corto - 1 / 1.6 ) < 0.05,
+		`×${ ( largo / corto ).toFixed( 3 ) } de giro con ×1.6 de brazo (1/1.6 = ${ ( 1 / 1.6 ).toFixed( 3 ) })` );
 
 	// El límite de corriente del variador tiene que notarse en el acelerón.
 	const limited = makeQuad( p => { p.motor.currentLimit = 12; p.esc.currentLimit = 12; } );
@@ -579,12 +611,15 @@ console.log( '\n== el aparato se rehace en caliente ==' );
 	drone.setSpawn( 0, 300, 0 );
 	fly( drone, { throttle: drone.hoverThrottle }, 2 );
 
-	const antes = { ep: drone.thrustToWeight, y: drone.position.y, rpm: drone.averageRpm, gas: drone.hoverThrottle };
+	const antes = {
+		ep: drone.thrustToWeight, y: drone.position.y, rpm: drone.averageRpm,
+		gas: drone.hoverThrottle, inercia: drone.body.inertia.x,
+	};
 
 	// La mitad de lo que pese, no un 0.300 fijo: aligerar tiene que subir el
 	// empuje/peso sea cual sea el aparato, y con un número clavado dependía de
 	// si el del fichero pesaba más o menos que ese 0.300.
-	drone.params.frame.mass /= 2;         // lo que hace el deslizador de masa
+	drone.params.frame.dryMass /= 2;      // lo que hace el deslizador de masa
 	drone.refresh();
 
 	check( 'cambiar la masa cambia el empuje/peso al momento', drone.thrustToWeight > antes.ep * 1.5,
@@ -593,6 +628,10 @@ console.log( '\n== el aparato se rehace en caliente ==' );
 		`y=${ drone.position.y.toFixed( 2 ) }` );
 	check( 'y sin parar los rotores', Math.abs( drone.averageRpm - antes.rpm ) < 1,
 		`${ drone.averageRpm.toFixed( 0 ) } RPM` );
+
+	// Lo que antes no pasaba: la inercia se rehace con la masa, en el sitio.
+	check( 'y la inercia se rehace con ella', drone.body.inertia.x < antes.inercia,
+		`${ antes.inercia.toExponential( 3 ) } → ${ drone.body.inertia.x.toExponential( 3 ) } kg·m²` );
 
 	// Y se nota volando: con el gas que sustentaba ANTES, ahora sube.
 	fly( drone, { throttle: antes.gas }, 1 );

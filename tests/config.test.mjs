@@ -42,7 +42,14 @@ for ( const block of [ 'frame', 'motor', 'esc', 'prop', 'battery', 'bf' ] ) {
 
 check( 'bf.pid tiene los tres ejes', baseConfig.flight.bf.pid.length === 3 );
 check( 'el yaw no lleva D', baseConfig.flight.bf.pid[ 2 ].dMax === 0 && baseConfig.flight.bf.pid[ 2 ].dMin === 0 );
-check( 'frame.inertia tiene tres componentes', baseConfig.flight.frame.inertia.length === 3 );
+// La inercia ya no se declara en el fichero: sale de la masa y del brazo. Pero
+// el sólido rígido la sigue leyendo por índice, y con dos componentes la física
+// entera sale NaN en el primer paso, así que lo que hay que comprobar es lo
+// mismo de siempre sobre lo que ahora lo produce: la configuración ya cargada.
+check( 'frame.inertia tiene tres componentes', config.flight.frame.inertia.length === 3 );
+check( 'y las tres son números buenos',
+	config.flight.frame.inertia.every( v => Number.isFinite( v ) && v > 0 ),
+	config.flight.frame.inertia.map( v => v.toExponential( 3 ) ).join( ' ' ) );
 
 console.log( '\n== curva del variador ==' );
 
@@ -128,13 +135,17 @@ const catches = ( name, sabotage, path ) => {
 
 catches( 'borrar la clave radius', c => { delete c.radius; }, 'radius' );
 catches( 'radius como cadena', c => { c.radius = '1100'; }, 'radius' );
-catches( 'mass escrito masa', c => {
-	c.flight.frame.masa = c.flight.frame.mass;
-	delete c.flight.frame.mass;
-}, 'flight.frame.mass' );
-catches( 'inertia con dos componentes', c => {
-	c.flight.frame.inertia = c.flight.frame.inertia.slice( 0, 2 );
-}, 'flight.frame.inertia' );
+catches( 'dryMass escrito masaSeca', c => {
+	c.flight.frame.masaSeca = c.flight.frame.dryMass;
+	delete c.flight.frame.dryMass;
+}, 'flight.frame.dryMass' );
+// La inercia ya no se declara —sale de la masa y del brazo—, así que el
+// sabotaje que la mutilaba no tiene dónde morder. El arrastre de referencia
+// ocupa su sitio: es el otro bloque de tres componentes que sí se teclea, y
+// dejarlo cojo hace NaN el mismo número de pasos después.
+catches( 'dragAreaRef sin uno de sus ejes', c => {
+	delete c.flight.frame.dragAreaRef.z;
+}, 'flight.frame.dragAreaRef.z' );
 catches( 'ui.mass.path apuntando a nada', c => {
 	c.ui.mass.path = 'flight.frame.masa';
 }, 'ui.mass' );
