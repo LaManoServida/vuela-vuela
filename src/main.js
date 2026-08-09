@@ -255,7 +255,7 @@ async function loadAndFly( { demo = false } = {} ) {
 			modo: demo ? 'demo' : 'google',
 			profundidad: renderer.depthMode,
 			colisiones: world.grid ? `${ world.grid.voxelSize.toFixed( 2 ) } m` : 'off',
-			aparato: config.flight.name,
+			dron: config.flight.name,
 			empujePeso: `${ drone.thrustToWeight.toFixed( 2 ) }:1`,
 			gasSustentacion: `${ ( drone.hoverThrottle * 100 ).toFixed( 0 ) } %`,
 		} );

@@ -162,7 +162,7 @@ const TABS = [
 	{ id: 'zona', label: 'Zona' },
 	{ id: 'mando', label: 'Mando' },
 	{ id: 'vuelo', label: 'Vuelo' },
-	{ id: 'aparato', label: 'Aparato' },
+	{ id: 'dron', label: 'Dron' },
 	{ id: 'juego', label: 'Juego' },
 	{ id: 'imagen', label: 'Imagen' },
 ];
@@ -201,7 +201,7 @@ export function buildSettings( container, config, {
 		zona: zone.rows,
 		mando: [ gamepadHost, buildInputPanel( config, onChange ) ],
 		vuelo: buildFlightPanel( config, onChange ),
-		aparato: [ buildHardwarePanel( config, onChange ) ],
+		dron: [ buildHardwarePanel( config, onChange ) ],
 		juego: [ buildGamePanel( config, onChange, onVoxelSize ) ],
 		imagen: [ buildImagePanel( config, onChange ) ],
 	};
@@ -652,7 +652,7 @@ export function buildFlightPanel( config, onChange ) {
 					...ui.motorIdle, format: v => `${ ( v * 100 ).toFixed( 1 ) } %`, onChange, notify: 'gas',
 				} ),
 			] ),
-			h( 'p', { class: 'note', text: 'El ralentí dinámico sostiene unas vueltas mínimas para que las hélices no se calen al cortar gas: a 0 se apaga, y entonces cortar del todo en pleno ascenso desestabiliza el aparato.' } ),
+			h( 'p', { class: 'note', text: 'El ralentí dinámico sostiene unas vueltas mínimas para que las hélices no se calen al cortar gas: a 0 se apaga, y entonces cortar del todo en pleno ascenso desestabiliza el dron.' } ),
 		] ),
 
 		h( 'fieldset', {}, [
@@ -678,7 +678,7 @@ export function buildFlightPanel( config, onChange ) {
 					...ui.rpmLimitLpfHz, format: v => `${ v } Hz`, onChange, notify: 'rpm',
 				} ),
 			] ),
-			h( 'p', { class: 'note', text: 'Mantiene las vueltas por debajo de un tope, como el gobernador de Betaflight. Apagado en el aparato de referencia.' } ),
+			h( 'p', { class: 'note', text: 'Mantiene las vueltas por debajo de un tope, como el gobernador de Betaflight. Apagado en el dron de referencia.' } ),
 		] ),
 
 	];
@@ -687,7 +687,7 @@ export function buildFlightPanel( config, onChange ) {
 
 /**
  * Reglas del juego: contra qué se choca, qué pasa al chocar y qué se dibuja.
- * Nada de esto es el aparato ni el mando.
+ * Nada de esto es el dron ni el mando.
  */
 export function buildGamePanel( config, onChange, onVoxelSize ) {
 
@@ -749,7 +749,7 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 }
 
 /**
- * El aparato en sí. Todo son magnitudes físicas y ahora sí arrastran lo que
+ * El dron en sí. Todo son magnitudes físicas y ahora sí arrastran lo que
  * cuelga de ellas —la masa y el brazo mandan sobre la inercia, el KV sobre la
  * resistencia, el diámetro sobre la cuerda y la inercia de la hélice, las celdas
  * sobre el peso—, así que cambiarlas cambia el vuelo por la vía correcta y no
@@ -780,7 +780,7 @@ export function buildHardwarePanel( config, onChange ) {
 		note.textContent = `${ f.name } · ${ ( f.frame.mass * 1000 ).toFixed( 0 ) } g `
 			+ `· ${ f.prop.diameterIn }×${ f.prop.pitchIn }" de ${ f.prop.blades } palas `
 			+ `· ${ f.motor.kv } KV · ${ f.battery.cells }S ${ ( f.battery.capacityAh * 1000 ).toFixed( 0 ) } mAh. `
-			+ `Todo esto se aplica al soltar el deslizador: el aparato se rehace en el sitio, sin tocar la escena. `
+			+ `Todo esto se aplica al soltar el deslizador: el dron se rehace en el sitio, sin tocar la escena. `
 			+ `Lo que cuelga de estas magnitudes se recalcula con ellas: la inercia sigue a la masa y al brazo, `
 			+ `la resistencia del motor al KV, y la cuerda y la inercia de la hélice a su diámetro y sus palas.`;
 		onChange?.( 'hardware' );
@@ -790,7 +790,7 @@ export function buildHardwarePanel( config, onChange ) {
 	refresh();
 
 	return h( 'fieldset', {}, [
-		h( 'legend', { text: 'Aparato' } ),
+		h( 'legend', { text: 'Dron' } ),
 		h( 'div', { class: 'grid' }, [
 			nestedSlider( 'Masa en seco', f.frame, 'dryMass', {
 				...ui.mass,

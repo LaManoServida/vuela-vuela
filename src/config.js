@@ -150,7 +150,7 @@ export const SCHEMA = block( {
 
 	places: list( place, { min: 1 } ),
 
-	// --- El aparato ---
+	// --- El dron ---
 	flight: block( {
 
 		name: text(),
