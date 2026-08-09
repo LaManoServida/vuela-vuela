@@ -12,6 +12,7 @@ import { cloneFlight, quadOptions } from '../src/config.js';
 import { Betaflight, QUAD_X, ROLL, PITCH, YAW } from '../src/flight/betaflight.js';
 import { Battery } from '../src/flight/battery.js';
 import { Prop } from '../src/flight/prop.js';
+import { deriveAircraft } from '../src/flight/derive.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -837,6 +838,96 @@ console.log( '\n== la cámara no baila con el paso fijo ==' );
 	check( 'la cámara interpolada se come el baile entero',
 		( pintado - suelo ) < ( crudo - suelo ) * 0.1,
 		`del exceso queda el ${ ( ( pintado - suelo ) / ( crudo - suelo ) * 100 ).toFixed( 1 ) } %` );
+}
+
+console.log( '\n== lo que se deduce del aparato ==' );
+{
+	/*
+	 * El aparato de referencia, escrito aquí a mano: son los números que
+	 * Velocidrone publica del TBS Oblivion y contra los que están calibradas
+	 * todas las fórmulas. Que estén repetidos aquí y en `derive.js` es
+	 * deliberado: si alguien re-ancla las constantes sin querer, esta prueba lo
+	 * dice. Un `import` de las mismas constantes no comprobaría nada.
+	 */
+	const ref = () => deriveAircraft( {
+		frame: { dryMass: 0.353, armRadius: 0.110, dragAreaRef: { x: 0.00742, y: 0.014, z: 0.00399 } },
+		motor: { kv: 1428 },
+		prop: { diameterIn: 5.1, blades: 3 },
+		battery: { cells: 4, capacityAh: 1.3 },
+	} );
+
+	const cerca = ( a, b, tol = 1e-9 ) => Math.abs( a - b ) <= tol * Math.max( 1, Math.abs( b ) );
+
+	// La prueba que sostiene a todas las demás: en el punto de referencia cada
+	// fórmula devuelve el número medido, exacto. Si esto falla, lo que venga
+	// detrás no significa nada.
+	const r = ref();
+	check( 'la masa de referencia sale de la seca más el pack', cerca( r.frame.mass, 0.529 ),
+		`${ r.frame.mass.toFixed( 4 ) } kg` );
+	check( 'la inercia de referencia es la medida', cerca( r.frame.inertia[ 0 ], 0.00175 ),
+		`${ r.frame.inertia[ 0 ].toExponential( 4 ) }` );
+	check( 'y es igual en los tres ejes',
+		r.frame.inertia[ 0 ] === r.frame.inertia[ 1 ] && r.frame.inertia[ 1 ] === r.frame.inertia[ 2 ] );
+	check( 'el arrastre de referencia es el declarado', cerca( r.frame.dragArea.z, 0.00399 ),
+		`${ r.frame.dragArea.z.toExponential( 4 ) } m²` );
+	check( 'la resistencia de referencia es la medida', cerca( r.motor.resistance, 0.1270 ),
+		`${ r.motor.resistance.toFixed( 4 ) } Ω` );
+	check( 'la cuerda de referencia es la medida', cerca( r.prop.chordMm, 15 ),
+		`${ r.prop.chordMm.toFixed( 3 ) } mm` );
+	check( 'la inercia de hélice de referencia es la medida', cerca( r.prop.inertia, 2.8e-6 ),
+		`${ r.prop.inertia.toExponential( 4 ) }` );
+
+	// Las leyes de escala, cada una en su exponente.
+	const conBrazo = f => { const p = ref(); p.frame.armRadius = 0.110 * f; return deriveAircraft( p ); };
+	check( 'doblar el brazo cuadruplica la inercia',
+		cerca( conBrazo( 2 ).frame.inertia[ 0 ], 0.00175 * 4, 1e-6 ),
+		`×${ ( conBrazo( 2 ).frame.inertia[ 0 ] / 0.00175 ).toFixed( 2 ) }` );
+	check( 'y cuadruplica el área de arrastre',
+		cerca( conBrazo( 2 ).frame.dragArea.z, 0.00399 * 4, 1e-6 ),
+		`×${ ( conBrazo( 2 ).frame.dragArea.z / 0.00399 ).toFixed( 2 ) }` );
+
+	// Ojo: doblar la masa EN SECO no dobla la total, porque el pack no cambia.
+	// Lo que se comprueba es que la inercia sigue a la masa total, que es de la
+	// que depende.
+	const conSeca = f => { const p = ref(); p.frame.dryMass = 0.353 * f; return deriveAircraft( p ); };
+	check( 'la inercia sigue a la masa total',
+		cerca( conSeca( 2 ).frame.inertia[ 0 ] / conSeca( 1 ).frame.inertia[ 0 ],
+			conSeca( 2 ).frame.mass / conSeca( 1 ).frame.mass, 1e-9 ),
+		`×${ ( conSeca( 2 ).frame.inertia[ 0 ] / conSeca( 1 ).frame.inertia[ 0 ] ).toFixed( 4 ) } de inercia por ×${ ( conSeca( 2 ).frame.mass / conSeca( 1 ).frame.mass ).toFixed( 4 ) } de masa` );
+
+	const conKv = f => { const p = ref(); p.motor.kv = 1428 * f; return deriveAircraft( p ); };
+	check( 'doblar el KV divide la resistencia por cuatro',
+		cerca( conKv( 2 ).motor.resistance, 0.1270 / 4, 1e-9 ),
+		`${ conKv( 2 ).motor.resistance.toFixed( 5 ) } Ω` );
+
+	const conDiam = f => { const p = ref(); p.prop.diameterIn = 5.1 * f; return deriveAircraft( p ); };
+	check( 'doblar el diámetro dobla la cuerda', cerca( conDiam( 2 ).prop.chordMm, 30, 1e-9 ),
+		`${ conDiam( 2 ).prop.chordMm.toFixed( 2 ) } mm` );
+	check( 'y multiplica por 32 la inercia de la hélice',
+		cerca( conDiam( 2 ).prop.inertia, 2.8e-6 * 32, 1e-9 ),
+		`×${ ( conDiam( 2 ).prop.inertia / 2.8e-6 ).toFixed( 1 ) }` );
+
+	const cuatroPalas = () => { const p = ref(); p.prop.blades = 4; return deriveAircraft( p ); };
+	check( 'una pala más sube la inercia de la hélice a proporción',
+		cerca( cuatroPalas().prop.inertia, 2.8e-6 * 4 / 3, 1e-9 ),
+		`×${ ( cuatroPalas().prop.inertia / 2.8e-6 ).toFixed( 3 ) }` );
+
+	const seisS = () => { const p = ref(); p.battery.cells = 6; return deriveAircraft( p ); };
+	check( 'de 4S a 6S el pack pesa la mitad más',
+		cerca( seisS().frame.mass - 0.353, 0.176 * 1.5, 1e-9 ),
+		`${ ( ( seisS().frame.mass - 0.353 ) * 1000 ).toFixed( 0 ) } g de pack` );
+
+	// Corre en cada `refresh()`: si una magnitud se calculara a partir de sí
+	// misma, la segunda pasada daría otro número. El arrastre es el que lo
+	// destaparía, porque es el único que tiene un declarado y un derivado.
+	const dosVeces = ref();
+	const antes = { ...dosVeces.frame.dragArea, m: dosVeces.frame.mass, i: dosVeces.frame.inertia[ 0 ] };
+	deriveAircraft( dosVeces );
+	deriveAircraft( dosVeces );
+	check( 'derivar tres veces da lo mismo que derivar una',
+		dosVeces.frame.dragArea.z === antes.z && dosVeces.frame.mass === antes.m
+			&& dosVeces.frame.inertia[ 0 ] === antes.i,
+		`arrastre ${ dosVeces.frame.dragArea.z.toExponential( 4 ) }` );
 }
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
