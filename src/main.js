@@ -3,6 +3,7 @@ import { Raycaster, MathUtils } from 'three';
 import { config, quadOptions } from './config.js';
 import { createRenderer, createScene, createTiles, resize, fogDensityFor, applyUnlit } from './world.js';
 import { preloadRegion, sampleGround } from './preload.js';
+import { createStream } from './stream.js';
 import { buildCollisionGrid, effectiveVoxelSize } from './voxels.js';
 import { createGridView } from './gridView.js';
 import { createDemoWorld } from './demoWorld.js';
@@ -145,6 +146,7 @@ function teardownWorld() {
 
 	try {
 
+		world.stream?.dispose();
 		world.gridView?.dispose();
 		world.tiles?.dispose();
 		world.demo?.dispose();
@@ -188,7 +190,10 @@ async function loadAndFly( { demo = false } = {} ) {
 	// La vista de depuración dibuja la rejilla, así que también la necesita: sin
 	// esto, arrancar con las colisiones apagadas dejaría la casilla «Ver la
 	// rejilla» encendida y sin nada que enseñar.
-	const needsGrid = config.collisions || config.showGrid;
+	// En exploración no hay rejilla: se construye de una vez sobre una zona
+	// finita y aquí la zona no acaba nunca. De paso se ahorra la parte más
+	// cara del arranque, así que se despega bastante antes.
+	const needsGrid = ! config.stream.enabled && ( config.collisions || config.showGrid );
 
 	const usedSteps = demo ? [] : [ 'root', 'tiles', 'textures', 'shaders' ];
 	if ( needsGrid ) usedSteps.push( 'collision' );
@@ -210,17 +215,31 @@ async function loadAndFly( { demo = false } = {} ) {
 		if ( demo ) {
 
 			source = createDemoWorld( config, scene );
-			world = { renderer, scene, camera, sky, tiles: null, demo: source, grid: null, gridView: null };
+			world = { renderer, scene, camera, sky, tiles: null, demo: source, grid: null, gridView: null, stream: null };
 			resize( renderer, camera, null, config );
 			await renderer.compileAsync( source.group, camera, scene );
 
 		} else {
 
-			tiles = createTiles( config, scene, camera, renderer ).tiles;
+			const created = createTiles( config, scene, camera, renderer );
+			tiles = created.tiles;
 			source = tiles;
-			world = { renderer, scene, camera, sky, tiles, demo: null, grid: null, gridView: null };
+			world = { renderer, scene, camera, sky, tiles, demo: null, grid: null, gridView: null, stream: null };
 			resize( renderer, camera, tiles, config );
 			stats = await preloadRegion( { tiles, renderer, scene, camera, config, steps, signal } );
+
+			// Después de la precarga, nunca antes: la cola de texturas sólo
+			// tiene que ocuparse de lo que llegue en vuelo, porque lo que ya
+			// está cargado lo ha subido la precarga entera.
+			if ( config.stream.enabled ) {
+
+				const { inner, mid, backdrop } = created.regions;
+				world.stream = createStream( {
+					tiles, renderer, config,
+					regions: [ inner, mid, backdrop ],
+				} );
+
+			}
 
 		}
 
@@ -253,6 +272,7 @@ async function loadAndFly( { demo = false } = {} ) {
 		console.info( '[vuela-vuela] zona lista', {
 			...stats,
 			modo: demo ? 'demo' : 'google',
+			carga: config.stream.enabled ? 'continua' : 'precargada',
 			profundidad: renderer.depthMode,
 			colisiones: world.grid ? `${ world.grid.voxelSize.toFixed( 2 ) } m` : 'off',
 			dron: config.flight.name,
@@ -512,6 +532,11 @@ function frame( now ) {
 	drone.update( frameMs / 1000, controls );
 	drone.applyToCamera( camera, config.camTilt );
 
+	// La zona sigue al dron. Va después de moverlo, para que las esferas de carga
+	// no vayan un frame por detrás, y antes de dibujar, para que lo que suba a la
+	// GPU en este turno ya se pueda usar en este fotograma.
+	world.stream?.update( now, drone.position );
+
 	// Apagada sale por la primera línea; encendida reconstruye como mucho una vez
 	// por segundo. Va después de mover el dron para que la ventana no vaya un frame por detrás.
 	world.gridView?.update( drone.position );
@@ -659,7 +684,11 @@ async function resumeFlight() {
 }
 
 /** Ajustes que sólo se pueden aplicar volviendo a cargar la zona. */
-const RELOAD_KEYS = [ 'place', 'coords', 'radius', 'quality', 'antialias' ];
+// `streamMode` está aquí y los tres números del modo no: encender o apagar la
+// exploración cambia lo que se congela, lo que desaloja la caché y si hay
+// rejilla, y eso se decide al cargar. Los tres números se releen en cada turno,
+// así que sus deslizadores hacen efecto en el sitio.
+const RELOAD_KEYS = [ 'place', 'coords', 'radius', 'quality', 'antialias', 'streamMode' ];
 
 /**
  * Construye o rehace la rejilla de colisiones sin tocar la escena.
