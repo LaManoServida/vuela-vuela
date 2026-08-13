@@ -768,8 +768,8 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 
 	const refreshGridControls = () => {
 
-		const off = config.stream.enabled;
-		const why = off && 'En exploración no hay rejilla: el dron no puede chocar ni hay nada que ver.';
+		const explorando = config.stream.enabled;
+		const why = explorando && 'En exploración no hay rejilla: el dron no puede chocar ni hay nada que ver.';
 
 		body.replaceChildren(
 			h( 'div', { class: 'row' }, [
@@ -788,7 +788,7 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 					...ui.gridRefresh, format: v => v === 0 ? 'al cambiar de celda' : `${ v.toFixed( 1 ) } s`, onChange, disabled: why,
 				} ),
 			] ),
-			...( off
+			...( explorando
 				? []
 				: [
 					h( 'p', { class: 'note', text: 'Alcance y refresco se aplican al momento. La resolución obliga a reconstruir la rejilla entera, así que se rehace al reanudar, con su barra: son segundos de CPU y no cuesta cuota, porque la geometría ya está en memoria.' } ),
@@ -811,7 +811,7 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 					...ui.respawnDelay, format: v => v === 0 ? 'al instante' : `${ v.toFixed( 1 ) } s`, onChange, disabled: why,
 				} ),
 			] ),
-			off
+			explorando
 				? h( 'p', { class: 'note', text: 'En exploración no hay colisiones: la rejilla no se construye nunca, así que el dron no puede chocar contra nada ni hay nada que ver o que rebote. Apaga el modo de exploración en «Zona» para recuperarlas.' } )
 				: h( 'p', { class: 'note', text: 'Se aplica al momento, en el siguiente choque.' } ),
 		);
