@@ -45,6 +45,28 @@ no impide arrancar.
   abarata la reconstrucción, la espacia. Bajarlo la recentra antes en el dron a costa de
   gastar más a menudo; 0 la rehace cada vez que el dron cambia de celda. Apagada no dibuja
   nada ni ocupa memoria.
+- **Modo de exploración** — la zona cargada sigue al dron en vez de quedarse clavada en el
+  punto de despegue, así que el mundo deja de acabarse a 22 km y puedes alejarte sin
+  límite. A cambio el detalle aparece según llega y **no hay colisiones**: la rejilla que
+  las hace posibles se construye de una vez sobre una zona finita, y aquí no la hay —ni al
+  cargar ni al reanudar desde la pausa—, así que el dron atraviesa edificios y terreno. Por
+  eso, mientras está encendido, el menú apaga solas **Colisiones**, **Ver la rejilla** y
+  sus tres deslizadores —resolución, alcance y refresco de la vista de rejilla—, y también
+  la respuesta al choque entera —a qué velocidad se rompe, cuánto rebota, cuánto patina,
+  cuánto voltea y el retardo de reaparición—, con una nota que explica el porqué en vez de
+  dejarte moverlos sin que hagan nada. La **batería** queda fuera: no depende de la
+  rejilla. Encenderlo o apagarlo recarga la zona —cuesta lo mismo, una sesión— y sus tres
+  números se aplican en el sitio:
+  - *Refresco de la carga* (1 s) — cada cuánto se recorre el árbol de tiles. Bajarlo no es
+    gratis: el recorrido es una llamada indivisible, así que un intervalo corto convierte
+    un recorrido caro en un tirón por turno más seguido; el número de milisegundos del OSD
+    dice si conviene subirlo. Un turno se salta entero si el dron no se ha movido 25 m.
+  - *Trabajo por frame* (3 ms) — techo de tiempo subiendo texturas a la GPU en cada frame.
+    Súbelo si el detalle no llega a tiempo, bájalo si el contador de tirones deja de ser
+    cero.
+  - *Memoria para tiles* (1,5 GB) — presupuesto de la caché. Corto, descarta cosas que
+    sigues viendo y las vuelve a pedir en bucle; largo, crece hasta matar la pestaña. El
+    OSD enseña cuánta se está usando de verdad.
 
 El coste de carga crece con el **cuadrado** del radio y con el **cuadrado** del inverso de
 la calidad. Duplicar el radio es 4× de trabajo. El menú te da una estimación en vivo. Todos

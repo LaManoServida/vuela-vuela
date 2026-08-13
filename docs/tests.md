@@ -78,6 +78,29 @@ por su cuenta. Cubre también el plan B: si un navegador estrangulase también l
 temporizadores del worker se nota, porque el turno tarda de más, y se cambia a un mecanismo
 que nadie puede estrangular.
 
+`tests/stream.test.mjs` cubre las piezas del modo de exploración, donde la zona cargada sigue
+al dron. Nada de esto necesita navegador: son aritmética de tiempo, de distancia y de
+matrices. El reloj de refresco tiene que exigir las dos condiciones —intervalo cumplido *y*
+distancia recorrida—, no gastar un solo turno con el dron quieto en el aire, y responder en el
+acto al volver a moverse, que es lo que se pierde si los turnos saltados se apuntan como
+gastados. El recentrado tiene que dejar las esferas sobre el dron deshaciendo la
+transformación con la que el tileset pone la zona en el origen, sin tocarles el radio, y se
+prueba con una matriz que además rota, no sólo traslada: con sólo traslación, una
+implementación que se limitase a restar el origen del tileset pasaría la prueba igual que la
+que deshace la rotación de verdad, así que hace falta esa vuelta de más para distinguirlas. El
+goteo de texturas se prueba con un reloj falso que mueve el propio trabajo, así que el
+presupuesto se comprueba contando en vez de cronometrando: parar al agotarlo, retomar
+exactamente donde iba sin repetir ni saltarse ninguna, que mallas que comparten textura —el
+caso normal de un tile fotogramétrico— no la dupliquen en la cola, y que una textura rota no
+deje el vuelo sin cargar nada más. La compactación del array interno —se recorta cuando lo ya
+subido pesa más que lo que queda— se prueba con la cola todavía viva, no vacía: se agota el
+presupuesto a media tanda grande para que el recorte tenga que arrastrar lo pendiente sin
+perderlo, que es el caso que de verdad arriesga algo. Y el montaje sobre un tileset falso
+comprueba lo que ata las tres piezas: que un modelo que llega en vuelo apunte sus texturas
+solo, que el presupuesto de memoria llegue a la caché con margen entre mínimo y máximo, que un
+tile que falla se cuente en vez de tumbar el vuelo, y que soltar el modo desenganche los
+oyentes —si no, el tileset viejo seguiría alimentando la cola de un modo ya muerto.
+
 `tests/world.test.mjs` cubre la voxelización de geometría real, la caída libre, el choque
 contra fachada y posarse sin temblar. Cubre también las dos formas que tiene la rejilla de
 irse de las manos: que un tile cargado pero **no dibujado** —un ancestro de miles de

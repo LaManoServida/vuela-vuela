@@ -47,3 +47,47 @@ enfoque es el contrario: se paga todo el coste antes de despegar.
 El OSD lleva un **gráfico de frametime y un contador de tirones** (frames > 24 ms) en la
 esquina superior derecha. Si marca 0 tras un vuelo largo, la precarga hizo su trabajo. Si
 aparece un pico, algo se quedó fuera.
+
+## El otro trato: el modo de exploración
+
+Todo lo de arriba descansa en que la zona sea finita y conocida antes de despegar. El
+precio es que el mundo se acaba a 22 km del punto de despegue: fuera de esa esfera no se
+carga nada, nunca, por diseño.
+
+El modo de exploración cambia ese trato. Las tres esferas de carga —detalle, media y
+telón de fondo— dejan de estar clavadas en el despegue y siguen al dron, con lo que
+desaparece el borde. A cambio se pierde la garantía estructural, porque vuelve a haber
+trabajo pendiente durante el vuelo, y en su lugar hay un presupuesto:
+
+- **El recorrido del árbol** va una vez por segundo (ajustable), no por frame, y sólo si
+  el dron se ha movido al menos 25 m desde el último. Quedarse quieto en el aire no
+  cuesta nada.
+- **La subida de texturas a la GPU** sigue yendo cada frame, en porciones diminutas, con
+  un techo en milisegundos que no se rebasa aunque queden mil pendientes. Un tile
+  fotogramétrico reparte su geometría en varias mallas que comparten la misma textura,
+  así que la cola dedupe antes de encolar: si no, el presupuesto se gastaría subiendo dos
+  veces lo mismo. Confundir los dos relojes tira abajo el diseño: agrupar las texturas
+  una vez por segundo daría un tirón por segundo.
+- **La caché recupera un tope de bytes** y suelta lo que queda atrás. No es higiene:
+  cuantos menos tiles vivos, más barato el recorrido.
+- **No se construye la rejilla de colisiones**, ni al cargar ni al reanudar desde la
+  pausa. Se construye de una vez sobre una zona finita y aquí no la hay, así que el dron
+  atraviesa edificios y terreno. De paso se despega antes, porque era la parte más cara
+  del arranque.
+- **Los materiales planos salen premiados.** Como todos los tiles comparten una sola
+  variante de shader, el primero compila y los demás reutilizan el programa: de los tres
+  costes que paga la precarga, el más traicionero en caliente casi desaparece.
+
+Cuando el dron avanza más rápido de lo que la red y la GPU alimentan, lo que se rompe es
+la nitidez —por delante se ve basto y va afinando conforme te acercas— y nunca la
+fluidez.
+
+**El riesgo conocido:** recorrer el árbol es una llamada indivisible. Si con la zona
+cargada cuesta 8 ms, hay un pico de 8 ms por turno y no lo arregla ningún presupuesto.
+Por eso el OSD enseña su coste real junto a la memoria viva: si se dispara, la respuesta
+es bajar el radio o espaciar el refresco, y eso se decide con el número delante.
+
+Este modo llega hasta donde el marco local plano siga valiendo, o sea decenas de kilómetros:
+a 50 km el suelo ha caído casi 200 m respecto al plano tangente y la vertical se ha girado
+medio grado. Volar hasta cualquier punto del planeta pide re-anclar el mundo cada pocos
+kilómetros reorientando la gravedad, y eso es otro proyecto.
