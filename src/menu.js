@@ -740,10 +740,15 @@ export function buildFlightPanel( config, onChange ) {
  *
  * Devuelve `{ el, refreshGridControls }` y no sólo el nodo: en exploración no
  * hay rejilla nunca —se construye de una vez sobre una zona finita, y aquí la
- * zona no acaba—, así que colisiones, ver la rejilla y sus tres deslizadores se
- * quedan sin nada que gobernar. `refreshGridControls` es lo que los desactiva
- * (o los devuelve) según `config.stream.enabled`; lo llama `buildSettings` al
- * entrar en esta pestaña, porque el interruptor que decide esto vive en «Zona».
+ * zona no acaba—, y de eso cuelga todo lo demás. `resolveCollisions()`
+ * (`flight/quad.js`) es la única vía por la que el dron se declara `crashed`,
+ * y exige esa rejilla; sin ella no sólo «Colisiones» y «Ver la rejilla» se
+ * quedan sin nada que gobernar, tampoco el dron puede chocar nunca, así que
+ * la respuesta al choque —velocidad de rotura, rebote, rozamiento, volteo,
+ * espera para reaparecer— es igual de inerte. `refreshGridControls` desactiva
+ * (o devuelve) el bloque entero según `config.stream.enabled`; lo llama
+ * `buildSettings` al entrar en esta pestaña, porque el interruptor que decide
+ * esto vive en «Zona».
  */
 export function buildGamePanel( config, onChange, onVoxelSize ) {
 
@@ -759,14 +764,14 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 
 	};
 
-	const gridHost = h( 'div' );
+	const body = h( 'div' );
 
 	const refreshGridControls = () => {
 
 		const off = config.stream.enabled;
-		const why = off && 'En exploración no hay rejilla: se construye de una vez sobre una zona finita, y aquí la zona no acaba nunca.';
+		const why = off && 'En exploración no hay rejilla: el dron no puede chocar ni hay nada que ver.';
 
-		gridHost.replaceChildren(
+		body.replaceChildren(
 			h( 'div', { class: 'row' }, [
 				checkbox( 'Colisiones', config, 'collisions', onChange, why ),
 				checkbox( 'Batería', config, 'battery', onChange ),
@@ -784,11 +789,31 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 				} ),
 			] ),
 			...( off
-				? [ h( 'p', { class: 'note', text: 'Colisiones y rejilla se apagan solas en exploración: no hay zona finita sobre la que construirla. Apaga el modo de exploración en «Zona» para recuperarlas.' } ) ]
+				? []
 				: [
 					h( 'p', { class: 'note', text: 'Alcance y refresco se aplican al momento. La resolución obliga a reconstruir la rejilla entera, así que se rehace al reanudar, con su barra: son segundos de CPU y no cuesta cuota, porque la geometría ya está en memoria.' } ),
 					h( 'p', { class: 'note', text: 'La rejilla cubre la zona entera en celdas de tamaño fijo y tiene un techo de 64 MB, así que lo fino que se puede hilar depende del radio: si lo pedido no cabe, el vóxel engorda hasta que quepa y el deslizador enseña el tamaño que sale de verdad. Bajarlo más allá de ahí no cambia nada; para afinar hay que reducir el radio de la zona.' } ),
 				] ),
+			h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
+				labelledSlider( 'Velocidad que rompe el dron', config, 'crashSpeed', {
+					...ui.crashSpeed, format: v => `${ v.toFixed( 1 ) } m/s`, onChange, disabled: why,
+				} ),
+				labelledSlider( 'Rebote contra la pared', config, 'restitution', {
+					...ui.restitution, format: v => v.toFixed( 2 ), onChange, disabled: why,
+				} ),
+				labelledSlider( 'Rozamiento contra la pared', config, 'friction', {
+					...ui.friction, format: v => v.toFixed( 2 ), onChange, disabled: why,
+				} ),
+				labelledSlider( 'Volteo máximo de un golpe', config, 'maxSpin', {
+					...ui.maxSpin, format: v => `${ v } rad/s`, onChange, disabled: why,
+				} ),
+				labelledSlider( 'Espera antes de reaparecer', config, 'respawnDelay', {
+					...ui.respawnDelay, format: v => v === 0 ? 'al instante' : `${ v.toFixed( 1 ) } s`, onChange, disabled: why,
+				} ),
+			] ),
+			off
+				? h( 'p', { class: 'note', text: 'En exploración no hay colisiones: la rejilla no se construye nunca, así que el dron no puede chocar contra nada ni hay nada que ver o que rebote. Apaga el modo de exploración en «Zona» para recuperarlas.' } )
+				: h( 'p', { class: 'note', text: 'Se aplica al momento, en el siguiente choque.' } ),
 		);
 
 	};
@@ -798,27 +823,7 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 	return {
 		el: h( 'fieldset', {}, [
 			h( 'legend', { text: 'Juego' } ),
-
-			gridHost,
-
-			h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
-				labelledSlider( 'Velocidad que rompe el dron', config, 'crashSpeed', {
-					...ui.crashSpeed, format: v => `${ v.toFixed( 1 ) } m/s`, onChange,
-				} ),
-				labelledSlider( 'Rebote contra la pared', config, 'restitution', {
-					...ui.restitution, format: v => v.toFixed( 2 ), onChange,
-				} ),
-				labelledSlider( 'Rozamiento contra la pared', config, 'friction', {
-					...ui.friction, format: v => v.toFixed( 2 ), onChange,
-				} ),
-				labelledSlider( 'Volteo máximo de un golpe', config, 'maxSpin', {
-					...ui.maxSpin, format: v => `${ v } rad/s`, onChange,
-				} ),
-				labelledSlider( 'Espera antes de reaparecer', config, 'respawnDelay', {
-					...ui.respawnDelay, format: v => v === 0 ? 'al instante' : `${ v.toFixed( 1 ) } s`, onChange,
-				} ),
-			] ),
-			h( 'p', { class: 'note', text: 'Se aplica al momento, en el siguiente choque.' } ),
+			body,
 		] ),
 		refreshGridControls,
 	};
