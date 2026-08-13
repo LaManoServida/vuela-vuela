@@ -38,6 +38,25 @@ export default {
 	spawnHeight: 45,           // m sobre el suelo
 
 	// =====================================================================
+	//  Modo de exploración
+	// =====================================================================
+	//  El modo normal precarga la zona entera y congela el recorrido del árbol
+	//  de tiles: cero tirones garantizados, a cambio de que el mundo se acabe a
+	//  22 km del despegue. En exploración las esferas de carga siguen al dron y
+	//  el mundo no tiene borde, a cambio de que el detalle aparezca según llega.
+	//
+	//  Aquí no hay colisiones: la rejilla de vóxeles se construye de una vez
+	//  sobre una zona finita, y en este modo no la hay. El dron atraviesa
+	//  edificios y terreno.
+
+	stream: {
+		enabled: false,
+		interval: 1.0,             // s entre recorridos del árbol de tiles
+		budgetMs: 3,               // techo de trabajo por frame subiendo texturas
+		memoryMb: 1500,            // presupuesto de la caché de tiles
+	},
+
+	// =====================================================================
 	//  Imagen
 	// =====================================================================
 

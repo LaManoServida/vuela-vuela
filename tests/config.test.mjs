@@ -51,6 +51,15 @@ check( 'y las tres son números buenos',
 	config.flight.frame.inertia.every( v => Number.isFinite( v ) && v > 0 ),
 	config.flight.frame.inertia.map( v => v.toExponential( 3 ) ).join( ' ' ) );
 
+console.log( '\n== modo de exploración ==' );
+
+check( 'el modo de exploración viene apagado de fábrica', baseConfig.stream.enabled === false );
+// El techo por frame tiene que dejarle sitio al render: si se come medio frame
+// de 60 fps, el presupuesto deja de proteger la fluidez y pasa a romperla.
+check( 'el techo de trabajo por frame deja sitio al render',
+	baseConfig.stream.budgetMs > 0 && baseConfig.stream.budgetMs < 8,
+	`${ baseConfig.stream.budgetMs } ms` );
+
 console.log( '\n== curva del variador ==' );
 
 const curve = baseConfig.flight.esc.curve;
@@ -135,6 +144,16 @@ const catches = ( name, sabotage, path ) => {
 
 catches( 'borrar la clave radius', c => { delete c.radius; }, 'radius' );
 catches( 'radius como cadena', c => { c.radius = '1100'; }, 'radius' );
+catches( 'borrar el bloque stream entero', c => { delete c.stream; }, 'stream' );
+catches( 'stream.enabled escrito como cadena', c => { c.stream.enabled = 'true'; }, 'stream.enabled' );
+// Un intervalo de 0 devuelve el recorrido del árbol a cada frame, que es justo
+// lo que este modo evita.
+catches( 'stream.interval a 0', c => { c.stream.interval = 0; }, 'stream.interval' );
+catches( 'stream.budgetMs más largo que un frame entero', c => { c.stream.budgetMs = 20; }, 'stream.budgetMs' );
+catches( 'memoryMb escrito memoriaMb', c => {
+	c.stream.memoriaMb = c.stream.memoryMb;
+	delete c.stream.memoryMb;
+}, 'stream.memoryMb' );
 catches( 'dryMass escrito masaSeca', c => {
 	c.flight.frame.masaSeca = c.flight.frame.dryMass;
 	delete c.flight.frame.dryMass;

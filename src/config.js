@@ -111,6 +111,21 @@ export const SCHEMA = block( {
 	quality: pos(),
 	spawnHeight: num( 0 ),
 
+	// --- Modo de exploración ---
+	//
+	// Los límites son la frontera de lo que el código sabe hacer, no gusto:
+	// por debajo de 0.05 s el recorrido del árbol vuelve a ser trabajo de
+	// cada frame; por encima de 8 ms el presupuesto se come medio frame de
+	// 60 fps y pasa a romper la fluidez en vez de protegerla; y con menos de
+	// 128 MB la caché no sostiene ni la zona de despegue, así que descartaría
+	// tiles que se están viendo para volver a pedirlos en bucle.
+	stream: block( {
+		enabled: bool(),
+		interval: num( 0.05, 60 ),
+		budgetMs: num( 0.1, 8 ),
+		memoryMb: num( 128, 16384 ),
+	} ),
+
 	// --- Imagen ---
 	renderScale: pos( 4 ),
 	fov: num( 1, 179 ),                // fuera de (0, 180) no hay proyección
