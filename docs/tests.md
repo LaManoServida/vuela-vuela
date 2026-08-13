@@ -81,25 +81,37 @@ que nadie puede estrangular.
 `tests/stream.test.mjs` cubre las piezas del modo de exploración, donde la zona cargada sigue
 al dron. Nada de esto necesita navegador: son aritmética de tiempo, de distancia y de
 matrices. El reloj de refresco tiene que exigir las dos condiciones —intervalo cumplido *y*
-distancia recorrida—, no gastar un solo turno con el dron quieto en el aire, y responder en el
-acto al volver a moverse, que es lo que se pierde si los turnos saltados se apuntan como
+distancia recorrida—, no gastar un solo turno con el dron quieto en el aire, y responder en
+el acto al volver a moverse, que es lo que se pierde si los turnos saltados se apuntan como
 gastados. El recentrado tiene que dejar las esferas sobre el dron deshaciendo la
 transformación con la que el tileset pone la zona en el origen, sin tocarles el radio, y se
 prueba con una matriz que además rota, no sólo traslada: con sólo traslación, una
 implementación que se limitase a restar el origen del tileset pasaría la prueba igual que la
-que deshace la rotación de verdad, así que hace falta esa vuelta de más para distinguirlas. El
-goteo de texturas se prueba con un reloj falso que mueve el propio trabajo, así que el
+que deshace la rotación de verdad, así que hace falta esa vuelta de más para distinguirlas.
+El goteo de texturas se prueba con un reloj falso que mueve el propio trabajo, así que el
 presupuesto se comprueba contando en vez de cronometrando: parar al agotarlo, retomar
 exactamente donde iba sin repetir ni saltarse ninguna, que mallas que comparten textura —el
 caso normal de un tile fotogramétrico— no la dupliquen en la cola, y que una textura rota no
-deje el vuelo sin cargar nada más. La compactación del array interno —se recorta cuando lo ya
-subido pesa más que lo que queda— se prueba con la cola todavía viva, no vacía: se agota el
+deje el vuelo sin cargar nada más. Aparte está la textura que la caché ya desalojó mientras
+esperaba turno en la cola —que guarda referencias fuertes y puede quedarse con tiles que ya
+no existen—: subir ese bitmap ya cerrado por el desalojo dejaría un handle huérfano en la GPU
+que ningún MB del OSD delata, así que tiene que quedarse fuera sin descolocar a las texturas
+vivas que la rodean, sin atascarse en la cola, y sin robarle presupuesto a las demás por el
+simple hecho de saltársela. La compactación del array interno —se recorta cuando lo ya subido
+pesa más que lo que queda— se prueba con la cola todavía viva, no vacía: se agota el
 presupuesto a media tanda grande para que el recorte tenga que arrastrar lo pendiente sin
 perderlo, que es el caso que de verdad arriesga algo. Y el montaje sobre un tileset falso
 comprueba lo que ata las tres piezas: que un modelo que llega en vuelo apunte sus texturas
-solo, que el presupuesto de memoria llegue a la caché con margen entre mínimo y máximo, que un
-tile que falla se cuente en vez de tumbar el vuelo, y que soltar el modo desenganche los
-oyentes —si no, el tileset viejo seguiría alimentando la cola de un modo ya muerto.
+solo, que el presupuesto de memoria llegue a la caché con margen entre mínimo y máximo, que
+un tile que falla se cuente en vez de tumbar el vuelo, y que soltar el modo desenganche los
+oyentes —si no, el tileset viejo seguiría alimentando la cola de un modo ya muerto. El
+reintento de los tiles fallidos lleva su propio freno: un vuelo sin fallos no paga ni uno, y
+uno que falla se reintenta aunque el dron esté parado en el aire —sin turno de recorrido no
+hay quien vuelva a pedirlo—, cobrándose él mismo el turno que lo pide de nuevo. Pero un fallo
+nuevo no dispara otro reintento antes de que cumpla su intervalo —sin ese freno, un corte de
+red daría un reintento por frame—, y sin reintento en absoluto la burbuja del tile fallido se
+quedaría clavada el resto del vuelo; el intervalo que separa un reintento del siguiente se
+comprueba razonable: más que un corte de wifi, menos que un vuelo entero.
 
 `tests/world.test.mjs` cubre la voxelización de geometría real, la caída libre, el choque
 contra fachada y posarse sin temblar. Cubre también las dos formas que tiene la rejilla de
