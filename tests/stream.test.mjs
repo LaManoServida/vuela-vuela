@@ -8,7 +8,7 @@
  * una es aritmética de tiempo y distancia, la otra de matrices.
  */
 import { Matrix4, Vector3, Sphere, Quaternion, Euler } from 'three';
-import { createRefreshClock, recenterRegions, createTextureQueue, QUEUE_COMPACT_THRESHOLD, MIN_MOVE } from '../src/stream.js';
+import { createRefreshClock, recenterRegions, createTextureQueue, createStream, QUEUE_COMPACT_THRESHOLD, MIN_MOVE } from '../src/stream.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -229,6 +229,75 @@ check( 'y ese resto se acaba subiendo, sin que falte ni una',
 	subidasSegundoTurno === restante && grande.pending === 0 );
 check( 'nada se pierde ni se repite en toda la operación, ni cambia el orden',
 	subidasGrandes.join( ',' ) === identificadores.join( ',' ) );
+
+console.log( '\n== el modo montado sobre el tileset ==' );
+
+// El tileset visto como lo ve el stream: un grupo con su transformación, una
+// caché con su cuenta de bytes, un recorrido que se puede contar y oyentes.
+const hacerTiles = () => {
+
+	const oyentes = {};
+
+	return {
+		group: { matrixWorld: new Matrix4() },
+		lruCache: { cachedBytes: 7 * 1048576, minBytesSize: 0, maxBytesSize: 0 },
+		recorridos: 0,
+		update() { this.recorridos ++; },
+		addEventListener( tipo, fn ) { ( oyentes[ tipo ] ||= [] ).push( fn ); },
+		removeEventListener( tipo, fn ) { oyentes[ tipo ] = ( oyentes[ tipo ] || [] ).filter( f => f !== fn ); },
+		emitir( tipo, ev ) { for ( const fn of oyentes[ tipo ] || [] ) fn( ev ); },
+	};
+
+};
+
+const cfg = { stream: { enabled: true, interval: 1, budgetMs: 1000, memoryMb: 1024 } };
+const tiles = hacerTiles();
+const esferas = [ { sphere: new Sphere( new Vector3(), 1100 ) } ];
+ahora = 0;
+const stream = createStream( { tiles, renderer, regions: esferas, config: cfg } );
+
+stream.update( 0, new Vector3( 5, 6, 7 ) );
+check( 'el primer turno recorre el árbol una vez', tiles.recorridos === 1 );
+check( 'y deja las esferas sobre el dron', esferas[ 0 ].sphere.center.equals( new Vector3( 5, 6, 7 ) ) );
+
+stream.update( 16, new Vector3( 5, 6, 7 ) );
+check( 'el frame siguiente no vuelve a recorrerlo', tiles.recorridos === 1 );
+
+stream.update( 2000, new Vector3( 500, 6, 7 ) );
+check( 'pasado el intervalo y movido, sí', tiles.recorridos === 2 );
+
+check( 'el presupuesto de memoria llega a la caché',
+	tiles.lruCache.minBytesSize === 1024 * 1048576,
+	`${ ( tiles.lruCache.minBytesSize / 1048576 ).toFixed( 0 ) } MB` );
+check( 'con margen entre el mínimo y el máximo, o la caché desalojaría sin parar',
+	tiles.lruCache.maxBytesSize > tiles.lruCache.minBytesSize );
+
+// Un modelo que llega en vuelo: sus texturas se apuntan solas y suben en el
+// siguiente turno, sin que nadie recorra el tileset entero buscándolas.
+subidas.length = 0;
+tiles.emitir( 'load-model', { scene: modelo( 'v1', 'v2' ) } );
+check( 'un modelo que llega en vuelo no sube nada por su cuenta', subidas.length === 0 );
+stream.update( 2016, new Vector3( 500, 6, 7 ) );
+check( 'sus texturas suben en el turno siguiente', subidas.join( '' ) === 'v1v2', subidas.join( '' ) );
+check( 'y la cola queda vacía', stream.stats.textures === 0 );
+
+check( 'el OSD recibe el coste del recorrido', Number.isFinite( stream.stats.traversalMs ) );
+check( 'y la memoria viva', stream.stats.bytes === 7 * 1048576 );
+
+// Un tile que falle en vuelo se apunta y no echa del vuelo. Durante la precarga
+// un error de carga aborta con su diagnóstico, y ahí está bien: no ha pasado
+// nada todavía. En vuelo un 500 suelto no puede tumbar la partida.
+tiles.emitir( 'load-error', { error: new Error( '500' ), url: 'https://tile' } );
+stream.update( 4000, new Vector3( 900, 6, 7 ) );
+check( 'un tile que falla en vuelo se apunta y se sigue volando', stream.stats.errors === 1 );
+
+// Al descargar el mundo hay que soltar los oyentes: si no, el tileset viejo
+// sigue alimentando la cola del stream muerto.
+stream.dispose();
+subidas.length = 0;
+tiles.emitir( 'load-model', { scene: modelo( 'z1' ) } );
+stream.update( 6000, new Vector3( 1400, 6, 7 ) );
+check( 'tras soltarlo ya no apunta nada', subidas.length === 0 );
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
 process.exit( fails === 0 ? 0 : 1 );

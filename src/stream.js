@@ -217,3 +217,84 @@ export function createTextureQueue( { renderer, budgetMs, now = () => performanc
 	};
 
 }
+
+/**
+ * El modo de exploración, montado sobre un tileset ya precargado.
+ *
+ * Se crea DESPUÉS de la precarga, nunca antes: la cola de texturas sólo tiene
+ * que ocuparse de lo que llegue en vuelo, porque lo que ya está cargado lo
+ * subió la precarga entera de una vez.
+ *
+ * Los cuatro ajustes se releen en cada turno en vez de copiarse al construir,
+ * y por eso sus deslizadores hacen efecto en caliente: sólo encender o apagar
+ * el modo obliga a recargar la zona.
+ */
+export function createStream( { tiles, renderer, regions, config } ) {
+
+	const clock = createRefreshClock( { intervalS: config.stream.interval } );
+	const textures = createTextureQueue( { renderer, budgetMs: config.stream.budgetMs } );
+
+	const onModel = ( { scene } ) => textures.enqueue( scene );
+	tiles.addEventListener( 'load-model', onModel );
+
+	// En la precarga un error de carga aborta con su diagnóstico —API key,
+	// facturación, restricciones de la clave— y ahí está bien, porque no ha
+	// pasado nada todavía. En vuelo es inaceptable: un 500 suelto o un corte de
+	// wifi de dos segundos no puede echar de la partida. Se cuenta y se sigue;
+	// como mucho ese trozo se ve basto.
+	let errors = 0;
+	const onError = () => {
+
+		errors ++;
+
+	};
+
+	tiles.addEventListener( 'load-error', onError );
+
+	const stats = { traversalMs: 0, textures: 0, bytes: 0, errors: 0 };
+
+	return {
+
+		stats,
+
+		update( nowMs, position ) {
+
+			clock.intervalS = config.stream.interval;
+			textures.budgetMs = config.stream.budgetMs;
+
+			// El desalojo no es higiene: cuantos menos tiles vivos, más barato el
+			// recorrido del árbol, que es la única parte que no se puede trocear.
+			// El margen entre mínimo y máximo es lo que evita que la caché esté
+			// desalojando en cada turno al rozar el techo.
+			const bytes = config.stream.memoryMb * 1048576;
+			tiles.lruCache.minBytesSize = bytes;
+			tiles.lruCache.maxBytesSize = bytes * 1.25;
+
+			if ( clock.due( nowMs, position ) ) {
+
+				recenterRegions( regions, tiles.group, position );
+
+				const t0 = performance.now();
+				tiles.update();
+				stats.traversalMs = performance.now() - t0;
+
+			}
+
+			textures.drain();
+
+			stats.textures = textures.pending;
+			stats.bytes = tiles.lruCache.cachedBytes;
+			stats.errors = errors;
+
+		},
+
+		dispose() {
+
+			tiles.removeEventListener( 'load-model', onModel );
+			tiles.removeEventListener( 'load-error', onError );
+
+		},
+
+	};
+
+}
