@@ -89,6 +89,10 @@ const _local = new Vector3();
  * del planeta corresponde la posición del dron.
  *
  * Mutar el centro basta: el plugin relee las esferas en cada recorrido.
+ *
+ * Lo que devuelve es el vector de trabajo del módulo, no una copia: sirve para
+ * leerlo en el acto y nada más, porque la llamada siguiente lo pisa. Quien
+ * necesite guardarlo tiene que clonarlo.
  */
 export function recenterRegions( regions, group, position ) {
 
@@ -270,9 +274,11 @@ export const RETRY_INTERVAL_S = 10;
  * que ocuparse de lo que llegue en vuelo, porque lo que ya está cargado lo
  * subió la precarga entera de una vez.
  *
- * Los cuatro ajustes se releen en cada turno en vez de copiarse al construir,
- * y por eso sus deslizadores hacen efecto en caliente: sólo encender o apagar
- * el modo obliga a recargar la zona.
+ * Los tres números del modo —intervalo, presupuesto por frame y memoria— se
+ * releen en cada turno en vez de copiarse al construir, y por eso sus
+ * deslizadores hacen efecto en caliente. El cuarto ajuste, `enabled`, no se lee
+ * aquí: quien decide si este módulo existe es `main.js`, y encenderlo o apagarlo
+ * obliga a recargar la zona.
  */
 export function createStream( { tiles, renderer, regions, config } ) {
 
