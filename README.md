@@ -103,7 +103,7 @@ Detalle de qué merece la pena tocar, y por qué: [docs/configuracion.md](docs/c
 
 - [El modelo de vuelo](docs/modelo-de-vuelo.md) — la cadena completa de stick a sólido
   rígido, y qué sale gratis por modelarla entera.
-- [Cómo se consigue que no se entrecorte](docs/rendimiento.md) — las nueve decisiones que
+- [Cómo se consigue que no se entrecorte](docs/rendimiento.md) — las diez decisiones que
   sostienen el objetivo de diseño.
 - [Configuración](docs/configuracion.md) — el contrato del fichero y los ajustes que importan.
 - [Tests](docs/tests.md) — qué cubre `npm test`, y los fallos reales que ha cazado.
