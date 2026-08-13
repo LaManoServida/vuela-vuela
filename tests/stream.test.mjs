@@ -8,7 +8,7 @@
  * una es aritmética de tiempo y distancia, la otra de matrices.
  */
 import { Matrix4, Vector3, Sphere, Quaternion, Euler } from 'three';
-import { createRefreshClock, recenterRegions, createTextureQueue, MIN_MOVE } from '../src/stream.js';
+import { createRefreshClock, recenterRegions, createTextureQueue, QUEUE_COMPACT_THRESHOLD, MIN_MOVE } from '../src/stream.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -159,6 +159,65 @@ variado.enqueue( {
 	},
 } );
 check( 'recoge listas de materiales y los mapas que no son el difuso', variado.pending === 4 );
+
+// Un tile fotogramétrico parte su geometría en varias mallas que comparten la
+// textura del tile: sin deduplicar, la misma entraría varias veces en la cola
+// y el número de pendientes que enseña el OSD mentiría.
+ahora = 0;
+const compartida = createTextureQueue( { renderer, budgetMs: 1000, now: () => ahora } );
+compartida.enqueue( modelo( 'x', 'x', 'x' ) );
+check( 'mallas que comparten textura no la duplican en la cola', compartida.pending === 1 );
+
+console.log( '\n== compactación de la cola de texturas ==' );
+
+// Cruzar el umbral no basta por sí solo: `drain()` también exige que lo
+// consumido pese más que lo que queda. Con margen de sobra en el presupuesto,
+// un único turno sube todo lo encolado y las dos condiciones se cumplen a la
+// vez.
+const total = QUEUE_COMPACT_THRESHOLD + 1000;
+const identificadores = [];
+for ( let i = 0; i < total; i ++ ) identificadores.push( `t${ i }` );
+
+ahora = 0;
+const subidasGrandes = [];
+const rendererGrande = { initTexture: t => { subidasGrandes.push( t ); ahora += 2; } };
+const grande = createTextureQueue( { renderer: rendererGrande, budgetMs: total * 2 + 10, now: () => ahora } );
+grande.enqueue( modelo( ...identificadores ) );
+
+// La compactación no cambia nada observable desde fuera —por diseño: si
+// cambiase algo, no sería segura—, así que lo único que delata que ha ocurrido
+// es la propia llamada a `splice`. Se espía un instante, sólo alrededor de este
+// `drain()`, y se repone enseguida para no dejar el espía puesto en el resto de
+// la suite.
+const spliceOriginal = Array.prototype.splice;
+let compactado = false;
+Array.prototype.splice = function ( ...args ) {
+
+	compactado = true;
+	return spliceOriginal.apply( this, args );
+
+};
+
+let subidasEsteTurno;
+try {
+
+	subidasEsteTurno = grande.drain();
+
+} finally {
+
+	Array.prototype.splice = spliceOriginal;
+
+}
+
+check( 'un solo turno con presupuesto de sobra sube todo lo encolado', subidasEsteTurno === total );
+check( 'cruzado el umbral, la cola se compacta sola', compactado );
+check( 'nada se pierde ni se repite tras compactar',
+	subidasGrandes.join( ',' ) === identificadores.join( ',' ) );
+
+// Y la cola sigue viva después: el cursor se repuso a cero sin romper nada.
+ahora = 0;
+grande.enqueue( modelo( 'zzz' ) );
+check( 'la cola sigue funcionando tras la compactación', grande.pending === 1 && grande.drain() === 1 );
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
 process.exit( fails === 0 ? 0 : 1 );

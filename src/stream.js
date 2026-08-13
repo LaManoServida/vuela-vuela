@@ -101,6 +101,13 @@ export function recenterRegions( regions, group, position ) {
 
 }
 
+// Umbral de compactación de la cola de texturas: por debajo de esto, el hueco
+// que dejan las texturas ya subidas es pequeño frente al coste del propio
+// `splice`, así que no vale la pena tocar el array. Un vuelo normal ni se
+// acerca a esta cifra en una sola vida de la cola; sólo importa en exploración
+// larga, donde la cola sí pasa por aquí muchas veces.
+export const QUEUE_COMPACT_THRESHOLD = 4096;
+
 /**
  * Cola de texturas por subir a la GPU, con techo por frame.
  *
@@ -137,6 +144,12 @@ export function createTextureQueue( { renderer, budgetMs, now = () => performanc
 		/** Apunta las texturas de un modelo recién cargado. */
 		enqueue( scene ) {
 
+			// Un tile fotogramétrico parte su geometría en varias mallas que
+			// comparten la textura del tile, así que sin deduplicar aquí la misma
+			// textura entraría varias veces y `drain()` gastaría presupuesto en
+			// volver a subir algo que ya está subido.
+			const seen = new Set();
+
 			scene.traverse( child => {
 
 				const material = child.material;
@@ -147,7 +160,7 @@ export function createTextureQueue( { renderer, budgetMs, now = () => performanc
 
 					for ( const key of [ 'map', 'emissiveMap', 'normalMap' ] ) {
 
-						if ( m[ key ] ) pending.push( m[ key ] );
+						if ( m[ key ] ) seen.add( m[ key ] );
 
 					}
 
@@ -155,11 +168,19 @@ export function createTextureQueue( { renderer, budgetMs, now = () => performanc
 
 			} );
 
+			for ( const texture of seen ) pending.push( texture );
+
 		},
 
 		/** Sube lo que quepa en el presupuesto. Devuelve cuántas subió. */
 		drain() {
 
+			// `initTexture` es una llamada síncrona y no hay forma de cortarla a
+			// mitad, así que el presupuesto sólo garantiza que no se EMPIEZA una
+			// subida pasado el plazo, no que el turno TERMINE dentro de él. Una
+			// textura suelta que tarde, ella sola, más que `budgetMs` entero se
+			// sube igual y ese frame se pasa de techo. Es el mismo patrón —y el
+			// mismo límite— que ya asume la precarga en `preload.js`.
 			const end = now() + this.budgetMs;
 			let done = 0;
 
@@ -182,7 +203,7 @@ export function createTextureQueue( { renderer, budgetMs, now = () => performanc
 
 			}
 
-			if ( head > 4096 && head * 2 > pending.length ) {
+			if ( head > QUEUE_COMPACT_THRESHOLD && head * 2 > pending.length ) {
 
 				pending.splice( 0, head );
 				head = 0;
