@@ -30,8 +30,9 @@ const MID_ERROR = 90;
 // que destruye cada pasada no es poco —geometría, materiales, texturas y el
 // `ImageBitmap.close()` de cada una—, porque la librería desaloja como mínimo
 // `unloadPercent` del presupuesto entero: con el 0,05 de fábrica y 1,5 GB de
-// caché, 75 MB de tiles de golpe, y la primera tormenta llega justo cuando la
-// caché toca techo, o sea a los veinte minutos de vuelo.
+// caché, 75 MB de tiles de golpe, y no hace falta que la caché toque techo
+// para que salte esa tormenta: basta con pasar del mínimo teniendo algún
+// tile sin usar.
 //
 // Con 0,01 son 15 MB por pasada. No desaloja menos en total: al quedarse corta,
 // la librería vuelve a programarse sola en el siguiente frame, así que los 375

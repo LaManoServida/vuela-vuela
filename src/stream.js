@@ -105,10 +105,13 @@ export function recenterRegions( regions, group, position ) {
 
 }
 
-// Margen entre el mínimo y el máximo de bytes de la caché. La caché sólo empieza
-// a desalojar cuando pasa del máximo, y desaloja hasta bajar del mínimo: sin
-// margen, cada tile que llega dispararía un desalojo y el vuelo se iría en
-// desalojar de uno en uno rozando el techo todo el rato.
+// Margen entre el mínimo y el máximo de bytes de la caché. El desalojo es
+// continuo y apunta al mínimo: salta en cuanto la caché lo supera con algún
+// tile sin usar, sin esperar a que toque el máximo. El máximo sólo alimenta
+// `isFull()`, que es lo que corta la admisión de tiles nuevos. Sin margen
+// los dos límites coincidirían y, como el desalojo va por pasadas y no de
+// golpe, la caché se pasaría el vuelo marcándose llena y readmitiendo tile
+// a tile.
 export const CACHE_HEADROOM = 1.25;
 
 /**
