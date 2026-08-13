@@ -136,6 +136,7 @@ input[type="text"], input[type="password"], input[type="number"], select {
 }
 input[type="range"] { width: 100%; accent-color: var(--accent); }
 input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+input[type="range"]:disabled, input[type="checkbox"]:disabled { opacity: 0.35; cursor: not-allowed; }
 
 label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 

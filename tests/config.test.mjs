@@ -168,6 +168,9 @@ catches( 'dragAreaRef sin uno de sus ejes', c => {
 catches( 'ui.mass.path apuntando a nada', c => {
 	c.ui.mass.path = 'flight.frame.masa';
 }, 'ui.mass' );
+catches( 'ui.streamInterval.path apuntando a nada', c => {
+	c.ui.streamInterval.path = 'stream.intervalo';
+}, 'ui.streamInterval' );
 catches( 'borrar el bloque flight.motor', c => { delete c.flight.motor; }, 'flight.motor' );
 catches( 'voxelSize a cero', c => { c.voxelSize = 0; }, 'voxelSize' );
 catches( 'borrar deadzone', c => { delete c.deadzone; }, 'deadzone' );

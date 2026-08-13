@@ -772,7 +772,14 @@ function estimateText() {
 	else if ( index < 6 ) label = 'carga larga (3–8 min) y bastante RAM/VRAM';
 	else label = 'carga muy larga y riesgo de quedarse sin memoria';
 
-	return `Zona de ${ ( config.radius * 2 / 1000 ).toFixed( 1 ) } km de diámetro a máximo detalle · ${ label }. Las recargas posteriores de la misma zona salen de la caché local y son mucho más rápidas.`;
+	const base = `Zona de ${ ( config.radius * 2 / 1000 ).toFixed( 1 ) } km de diámetro a máximo detalle · ${ label }. Las recargas posteriores de la misma zona salen de la caché local y son mucho más rápidas.`;
+
+	// En exploración este radio deja de ser el mundo entero y pasa a ser sólo lo
+	// que hay listo al despegar. Decir lo mismo en los dos modos haría mentir a
+	// la estimación justo en el modo que la vuelve poco importante.
+	return config.stream.enabled
+		? `${ base } En exploración esto es sólo lo que se carga antes de despegar: a partir de ahí la zona te sigue y no hay borde.`
+		: base;
 
 }
 

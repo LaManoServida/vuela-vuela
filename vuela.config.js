@@ -444,6 +444,10 @@ export default {
 		quality:       { path: 'quality', min: 6, max: 40, step: 1 },
 		spawnHeight:   { path: 'spawnHeight', min: 2, max: 300, step: 1 },
 
+		streamInterval: { path: 'stream.interval', min: 0.25, max: 5, step: 0.25 },
+		streamBudget:   { path: 'stream.budgetMs', min: 1, max: 6, step: 0.5 },
+		streamMemory:   { path: 'stream.memoryMb', min: 500, max: 4000, step: 100 },
+
 		fov:           { path: 'fov', min: 70, max: 160, step: 1 },
 		camTilt:       { path: 'camTilt', min: 0, max: 55, step: 1 },
 		renderScale:   { path: 'renderScale', min: 0.5, max: 1.5, step: 0.05 },

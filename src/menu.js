@@ -29,11 +29,17 @@ function slider( config, key, { min, max, step, format, onChange } ) {
 
 }
 
+// `opts.disabled` es opcional: si es una cadena, el control se desactiva y esa
+// cadena se enseña como título. Sirve para los controles que en exploración se
+// quedan sin nada que gobernar (ver `buildGamePanel`), sin abrir un camino
+// aparte sólo para ellos.
 function labelledSlider( text, config, key, opts ) {
 
 	const value = h( 'span', { class: 'val', text: opts.format( config[ key ] ) } );
 	const input = h( 'input', {
 		type: 'range', min: opts.min, max: opts.max, step: opts.step, value: config[ key ],
+		disabled: !! opts.disabled,
+		title: typeof opts.disabled === 'string' ? opts.disabled : null,
 		oninput: e => {
 
 			config[ key ] = parseFloat( e.target.value );
@@ -50,12 +56,15 @@ function labelledSlider( text, config, key, opts ) {
 
 }
 
-function checkbox( text, config, key, onChange ) {
+/** Mismo `disabled` opcional que `labelledSlider`, ver ahí el porqué. */
+function checkbox( text, config, key, onChange, disabled = false ) {
 
 	return h( 'label', { class: 'check' }, [
 		h( 'input', {
 			type: 'checkbox',
 			checked: config[ key ] === true,
+			disabled: !! disabled,
+			title: typeof disabled === 'string' ? disabled : null,
 			onchange: e => {
 
 				config[ key ] = e.target.checked;
@@ -197,12 +206,18 @@ export function buildSettings( container, config, {
 		? buildGamepadPanel( gamepadHost, config, input, { onChange: onGamepadChange } )
 		: null;
 
+	// El panel de juego se monta una sola vez, como los demás, pero sus
+	// controles de rejilla dependen de `config.stream.enabled` y ésa se toca
+	// desde la pestaña «Zona»: `game.refreshGridControls` es el enganche que usa
+	// `showTab` para que no se queden enseñando un estado viejo.
+	const game = buildGamePanel( config, onChange, onVoxelSize );
+
 	const content = {
 		zona: zone.rows,
 		mando: [ gamepadHost, buildInputPanel( config, onChange ) ],
 		vuelo: buildFlightPanel( config, onChange ),
 		dron: [ buildHardwarePanel( config, onChange ) ],
-		juego: [ buildGamePanel( config, onChange, onVoxelSize ) ],
+		juego: [ game.el ],
 		imagen: [ buildImagePanel( config, onChange ) ],
 	};
 
@@ -222,6 +237,11 @@ export function buildSettings( container, config, {
 			buttons[ tab.id ].setAttribute( 'aria-selected', String( tab.id === id ) );
 
 		}
+
+		// Entrar en «Juego» es el único momento en que hace falta mirar de nuevo
+		// el interruptor de exploración: si se tocó desde «Zona» mientras esta
+		// pestaña estaba oculta, aquí es donde se pone al día.
+		if ( id === 'juego' ) game.refreshGridControls();
 
 	};
 
@@ -394,7 +414,36 @@ export function buildZonePanel( config, onChange, onEstimate ) {
 
 	refreshEstimate();
 
-	return { rows: [ account, zone ], refreshEstimate };
+	const stream = h( 'fieldset', {}, [
+		h( 'legend', { text: 'Modo de exploración' } ),
+		checkbox( 'La zona cargada sigue al dron', config.stream, 'enabled', () => {
+
+			refreshEstimate();
+			onChange?.( 'streamMode' );
+
+		} ),
+		h( 'p', { class: 'note', text: 'Sin él el mundo se acaba a 22 km del despegue. Con él puedes alejarte sin límite, a cambio de que el detalle aparezca según llega en vez de estar todo listo antes de despegar. No hay colisiones: el dron atraviesa edificios y terreno. Cuesta lo mismo, una sesión.' } ),
+		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
+			labelledSlider( 'Refresco de la carga', config.stream, 'interval', {
+				...ui.streamInterval,
+				format: v => `${ v.toFixed( 2 ) } s`,
+				onChange,
+			} ),
+			labelledSlider( 'Trabajo por frame', config.stream, 'budgetMs', {
+				...ui.streamBudget,
+				format: v => `${ v.toFixed( 1 ) } ms`,
+				onChange,
+			} ),
+			labelledSlider( 'Memoria para tiles', config.stream, 'memoryMb', {
+				...ui.streamMemory,
+				format: v => `${ ( v / 1024 ).toFixed( 1 ) } GB`,
+				onChange,
+			} ),
+		] ),
+		h( 'p', { class: 'note', text: 'Estos tres se aplican en el sitio, sin recargar la zona. Súbelos si el detalle no llega a tiempo; bájalos si el contador de tirones del OSD deja de marcar cero.' } ),
+	] );
+
+	return { rows: [ account, zone, stream ], refreshEstimate };
 
 }
 
@@ -688,6 +737,13 @@ export function buildFlightPanel( config, onChange ) {
 /**
  * Reglas del juego: contra qué se choca, qué pasa al chocar y qué se dibuja.
  * Nada de esto es el dron ni el mando.
+ *
+ * Devuelve `{ el, refreshGridControls }` y no sólo el nodo: en exploración no
+ * hay rejilla nunca —se construye de una vez sobre una zona finita, y aquí la
+ * zona no acaba—, así que colisiones, ver la rejilla y sus tres deslizadores se
+ * quedan sin nada que gobernar. `refreshGridControls` es lo que los desactiva
+ * (o los devuelve) según `config.stream.enabled`; lo llama `buildSettings` al
+ * entrar en esta pestaña, porque el interruptor que decide esto vive en «Zona».
  */
 export function buildGamePanel( config, onChange, onVoxelSize ) {
 
@@ -703,48 +759,69 @@ export function buildGamePanel( config, onChange, onVoxelSize ) {
 
 	};
 
-	return h( 'fieldset', {}, [
-		h( 'legend', { text: 'Juego' } ),
+	const gridHost = h( 'div' );
 
-		h( 'div', { class: 'row' }, [
-			checkbox( 'Colisiones', config, 'collisions', onChange ),
-			checkbox( 'Batería', config, 'battery', onChange ),
-			checkbox( 'Ver la rejilla', config, 'showGrid', onChange ),
-		] ),
+	const refreshGridControls = () => {
 
-		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
-			labelledSlider( 'Resolución de la rejilla', config, 'voxelSize', {
-				...ui.voxelSize, format: voxelLabel, onChange,
-			} ),
-			labelledSlider( 'Alcance de la vista de rejilla', config, 'gridRadius', {
-				...ui.gridRadius, format: v => `${ v } m`, onChange,
-			} ),
-			labelledSlider( 'Refresco de la vista de rejilla', config, 'gridRefresh', {
-				...ui.gridRefresh, format: v => v === 0 ? 'al cambiar de celda' : `${ v.toFixed( 1 ) } s`, onChange,
-			} ),
-		] ),
-		h( 'p', { class: 'note', text: 'Alcance y refresco se aplican al momento. La resolución obliga a reconstruir la rejilla entera, así que se rehace al reanudar, con su barra: son segundos de CPU y no cuesta cuota, porque la geometría ya está en memoria.' } ),
-		h( 'p', { class: 'note', text: 'La rejilla cubre la zona entera en celdas de tamaño fijo y tiene un techo de 64 MB, así que lo fino que se puede hilar depende del radio: si lo pedido no cabe, el vóxel engorda hasta que quepa y el deslizador enseña el tamaño que sale de verdad. Bajarlo más allá de ahí no cambia nada; para afinar hay que reducir el radio de la zona.' } ),
+		const off = config.stream.enabled;
+		const why = off && 'En exploración no hay rejilla: se construye de una vez sobre una zona finita, y aquí la zona no acaba nunca.';
 
-		h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
-			labelledSlider( 'Velocidad que rompe el dron', config, 'crashSpeed', {
-				...ui.crashSpeed, format: v => `${ v.toFixed( 1 ) } m/s`, onChange,
-			} ),
-			labelledSlider( 'Rebote contra la pared', config, 'restitution', {
-				...ui.restitution, format: v => v.toFixed( 2 ), onChange,
-			} ),
-			labelledSlider( 'Rozamiento contra la pared', config, 'friction', {
-				...ui.friction, format: v => v.toFixed( 2 ), onChange,
-			} ),
-			labelledSlider( 'Volteo máximo de un golpe', config, 'maxSpin', {
-				...ui.maxSpin, format: v => `${ v } rad/s`, onChange,
-			} ),
-			labelledSlider( 'Espera antes de reaparecer', config, 'respawnDelay', {
-				...ui.respawnDelay, format: v => v === 0 ? 'al instante' : `${ v.toFixed( 1 ) } s`, onChange,
-			} ),
+		gridHost.replaceChildren(
+			h( 'div', { class: 'row' }, [
+				checkbox( 'Colisiones', config, 'collisions', onChange, why ),
+				checkbox( 'Batería', config, 'battery', onChange ),
+				checkbox( 'Ver la rejilla', config, 'showGrid', onChange, why ),
+			] ),
+			h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
+				labelledSlider( 'Resolución de la rejilla', config, 'voxelSize', {
+					...ui.voxelSize, format: voxelLabel, onChange, disabled: why,
+				} ),
+				labelledSlider( 'Alcance de la vista de rejilla', config, 'gridRadius', {
+					...ui.gridRadius, format: v => `${ v } m`, onChange, disabled: why,
+				} ),
+				labelledSlider( 'Refresco de la vista de rejilla', config, 'gridRefresh', {
+					...ui.gridRefresh, format: v => v === 0 ? 'al cambiar de celda' : `${ v.toFixed( 1 ) } s`, onChange, disabled: why,
+				} ),
+			] ),
+			...( off
+				? [ h( 'p', { class: 'note', text: 'Colisiones y rejilla se apagan solas en exploración: no hay zona finita sobre la que construirla. Apaga el modo de exploración en «Zona» para recuperarlas.' } ) ]
+				: [
+					h( 'p', { class: 'note', text: 'Alcance y refresco se aplican al momento. La resolución obliga a reconstruir la rejilla entera, así que se rehace al reanudar, con su barra: son segundos de CPU y no cuesta cuota, porque la geometría ya está en memoria.' } ),
+					h( 'p', { class: 'note', text: 'La rejilla cubre la zona entera en celdas de tamaño fijo y tiene un techo de 64 MB, así que lo fino que se puede hilar depende del radio: si lo pedido no cabe, el vóxel engorda hasta que quepa y el deslizador enseña el tamaño que sale de verdad. Bajarlo más allá de ahí no cambia nada; para afinar hay que reducir el radio de la zona.' } ),
+				] ),
+		);
+
+	};
+
+	refreshGridControls();
+
+	return {
+		el: h( 'fieldset', {}, [
+			h( 'legend', { text: 'Juego' } ),
+
+			gridHost,
+
+			h( 'div', { class: 'grid', style: 'margin-top:10px' }, [
+				labelledSlider( 'Velocidad que rompe el dron', config, 'crashSpeed', {
+					...ui.crashSpeed, format: v => `${ v.toFixed( 1 ) } m/s`, onChange,
+				} ),
+				labelledSlider( 'Rebote contra la pared', config, 'restitution', {
+					...ui.restitution, format: v => v.toFixed( 2 ), onChange,
+				} ),
+				labelledSlider( 'Rozamiento contra la pared', config, 'friction', {
+					...ui.friction, format: v => v.toFixed( 2 ), onChange,
+				} ),
+				labelledSlider( 'Volteo máximo de un golpe', config, 'maxSpin', {
+					...ui.maxSpin, format: v => `${ v } rad/s`, onChange,
+				} ),
+				labelledSlider( 'Espera antes de reaparecer', config, 'respawnDelay', {
+					...ui.respawnDelay, format: v => v === 0 ? 'al instante' : `${ v.toFixed( 1 ) } s`, onChange,
+				} ),
+			] ),
+			h( 'p', { class: 'note', text: 'Se aplica al momento, en el siguiente choque.' } ),
 		] ),
-		h( 'p', { class: 'note', text: 'Se aplica al momento, en el siguiente choque.' } ),
-	] );
+		refreshGridControls,
+	};
 
 }
 
