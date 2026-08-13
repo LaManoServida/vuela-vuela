@@ -170,19 +170,26 @@ check( 'mallas que comparten textura no la duplican en la cola', compartida.pend
 
 console.log( '\n== compactación de la cola de texturas ==' );
 
-// Cruzar el umbral no basta por sí solo: `drain()` también exige que lo
-// consumido pese más que lo que queda. Con margen de sobra en el presupuesto,
-// un único turno sube todo lo encolado y las dos condiciones se cumplen a la
-// vez.
-const total = QUEUE_COMPACT_THRESHOLD + 1000;
+// El caso que de verdad arriesga algo no es compactar con la cola ya vacía
+// —ahí `head === pending.length` y de poco sirve la prueba—, sino compactar
+// con la cola todavía viva: el presupuesto se agota a propósito antes de
+// drenarla entera, así que al compactar queda `head < pending.length`, y lo
+// que faltaba por subir tiene que sobrevivir al recorte del array.
+const total = QUEUE_COMPACT_THRESHOLD + 2000;
 const identificadores = [];
 for ( let i = 0; i < total; i ++ ) identificadores.push( `t${ i }` );
 
-ahora = 0;
+const primerTurno = 5000;   // > umbral, y su doble > total: cruza las dos condiciones de sobra
+const restante = total - primerTurno;
+
 const subidasGrandes = [];
 const rendererGrande = { initTexture: t => { subidasGrandes.push( t ); ahora += 2; } };
-const grande = createTextureQueue( { renderer: rendererGrande, budgetMs: total * 2 + 10, now: () => ahora } );
+// El presupuesto se ajusta para agotarse justo tras `primerTurno` subidas: con
+// el reloj falso a coste fijo de 2 ms por textura, ese es el único número que
+// hace falta.
+const grande = createTextureQueue( { renderer: rendererGrande, budgetMs: primerTurno * 2, now: () => ahora } );
 grande.enqueue( modelo( ...identificadores ) );
+ahora = 0;
 
 // La compactación no cambia nada observable desde fuera —por diseño: si
 // cambiase algo, no sería segura—, así que lo único que delata que ha ocurrido
@@ -198,10 +205,10 @@ Array.prototype.splice = function ( ...args ) {
 
 };
 
-let subidasEsteTurno;
+let subidasPrimerTurno;
 try {
 
-	subidasEsteTurno = grande.drain();
+	subidasPrimerTurno = grande.drain();
 
 } finally {
 
@@ -209,15 +216,19 @@ try {
 
 }
 
-check( 'un solo turno con presupuesto de sobra sube todo lo encolado', subidasEsteTurno === total );
-check( 'cruzado el umbral, la cola se compacta sola', compactado );
-check( 'nada se pierde ni se repite tras compactar',
-	subidasGrandes.join( ',' ) === identificadores.join( ',' ) );
+check( 'el primer turno se para donde manda el presupuesto, con la cola aún viva',
+	subidasPrimerTurno === primerTurno );
+check( 'cruzado el umbral con texturas todavía sin subir, se compacta sola', compactado );
+check( 'lo que quedaba pendiente sigue ahí, completo, tras compactar', grande.pending === restante );
 
-// Y la cola sigue viva después: el cursor se repuso a cero sin romper nada.
-ahora = 0;
-grande.enqueue( modelo( 'zzz' ) );
-check( 'la cola sigue funcionando tras la compactación', grande.pending === 1 && grande.drain() === 1 );
+// Turno siguiente, con presupuesto de sobra: si la compactación hubiera
+// tirado también lo pendiente en vez de sólo lo ya subido, aquí faltarían
+// texturas por drenar.
+const subidasSegundoTurno = grande.drain();
+check( 'y ese resto se acaba subiendo, sin que falte ni una',
+	subidasSegundoTurno === restante && grande.pending === 0 );
+check( 'nada se pierde ni se repite en toda la operación, ni cambia el orden',
+	subidasGrandes.join( ',' ) === identificadores.join( ',' ) );
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
 process.exit( fails === 0 ? 0 : 1 );
