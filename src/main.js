@@ -468,6 +468,11 @@ function realVoxelSize( requested ) {
  */
 function gridPending() {
 
+	// En exploración no hay rejilla que construir nunca: se construye de una
+	// vez sobre una zona finita, y aquí la zona no acaba. No hay nada que
+	// reconstruir al reanudar, ni en ningún otro momento.
+	if ( config.stream.enabled ) return false;
+
 	if ( ! config.collisions && ! config.showGrid ) return false;
 	return ! world?.grid || pending.grid;
 
