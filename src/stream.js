@@ -143,6 +143,15 @@ export const QUEUE_COMPACT_THRESHOLD = 4096;
  * aunque queden mil pendientes — y ése es exactamente el punto donde se decide
  * romper la nitidez para no romper la fluidez.
  *
+ * Este es el único techo en milisegundos que hay en todo el modo, y sólo cubre
+ * esto. La descarga y el parseo del glTF van por las colas del propio tileset
+ * (`downloadQueue`, `parseQueue`), que se limitan por trabajos en paralelo y no
+ * por tiempo: un parseo gordo cae entero dentro de un frame y `budgetMs` no lo
+ * ve. El recorrido del árbol tampoco pasa por aquí —es indivisible, por eso el
+ * OSD enseña su coste aparte— ni el desalojo de la caché, que corre en una
+ * microtarea cuando el frame ya ha devuelto. Quien crea que este número gobierna
+ * el goteo entero interpretará mal el primer tirón que vea.
+ *
  * `budgetMs` es público porque es un deslizador de la pausa, y `now` se puede
  * sustituir para poder probar el presupuesto contando en vez de cronometrando.
  */

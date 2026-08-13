@@ -48,11 +48,20 @@ export default {
 	//  Aquí no hay colisiones: la rejilla de vóxeles se construye de una vez
 	//  sobre una zona finita, y en este modo no la hay. El dron atraviesa
 	//  edificios y terreno.
+	//
+	//  `budgetMs` gobierna una sola cosa, y conviene saber cuál para no leer mal
+	//  un tirón: los milisegundos por frame que se gastan subiendo texturas a la
+	//  GPU. No gobierna la descarga ni el parseo del glTF, que van por las colas
+	//  de la librería y se limitan por trabajos en paralelo, no por tiempo; ni el
+	//  recorrido del árbol, que es una llamada indivisible y se mide aparte en el
+	//  OSD; ni el desalojo de la caché, que corre fuera del frame. Si el contador
+	//  de tirones se mueve, bajar este número sólo ayuda si lo que se pasaba de
+	//  largo eran las texturas.
 
 	stream: {
 		enabled: false,
 		interval: 1.0,             // s entre recorridos del árbol de tiles
-		budgetMs: 3,               // techo de trabajo por frame subiendo texturas
+		budgetMs: 3,               // techo por frame, sólo para subir texturas a la GPU
 		memoryMb: 1500,            // presupuesto de la caché de tiles
 	},
 

@@ -68,6 +68,15 @@ trabajo pendiente durante el vuelo, y en su lugar hay un presupuesto:
   así que la cola dedupe antes de encolar: si no, el presupuesto se gastaría subiendo dos
   veces lo mismo. Confundir los dos relojes tira abajo el diseño: agrupar las texturas
   una vez por segundo daría un tirón por segundo.
+- **Ese techo es el único que hay, y cubre sólo eso.** Conviene tenerlo claro para no leer
+  mal un tirón. La descarga y el parseo del glTF van por las colas del propio tileset, que
+  se limitan por número de trabajos en paralelo y no por tiempo: un parseo gordo cae entero
+  dentro de un frame y el presupuesto ni se entera. El recorrido del árbol es indivisible
+  —por eso el OSD enseña su coste por separado— y el desalojo de la caché corre en una
+  microtarea, cuando el frame ya ha devuelto. Así que si el contador de tirones se mueve,
+  bajar el presupuesto por frame sólo ayuda cuando lo que se pasaba de largo eran las
+  texturas; para lo demás los mandos son otros: el radio, el intervalo de refresco y la
+  memoria.
 - **La caché recupera un tope de bytes** y suelta lo que queda atrás. No es higiene:
   cuantos menos tiles vivos, más barato el recorrido.
 - **No se construye la rejilla de colisiones**, ni al cargar ni al reanudar desde la
