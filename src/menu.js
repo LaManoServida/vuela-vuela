@@ -441,6 +441,7 @@ export function buildZonePanel( config, onChange, onEstimate ) {
 			} ),
 		] ),
 		h( 'p', { class: 'note', text: 'Estos tres se aplican en el sitio, sin recargar la zona. Súbelos si el detalle no llega a tiempo; bájalos si el contador de tirones del OSD deja de marcar cero.' } ),
+		h( 'p', { class: 'note', text: 'La memoria tiene un tercer efecto que no se ve venir: aquí el árbol de tiles no se congela, así que cada frame three recorre todos los tiles vivos recomponiendo las matrices de cosas que no se mueven. Ese coste sube en línea recta con la memoria, y se nota en los fps antes que en la pestaña.' } ),
 	] );
 
 	return { rows: [ account, zone, stream ], refreshEstimate };

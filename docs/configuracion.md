@@ -66,7 +66,11 @@ no impide arrancar.
     cero.
   - *Memoria para tiles* (1,5 GB) — presupuesto de la caché. Corto, descarta cosas que
     sigues viendo y las vuelve a pedir en bucle; largo, crece hasta matar la pestaña. El
-    OSD enseña cuánta se está usando de verdad.
+    OSD enseña cuánta se está usando de verdad. Y hay un tercer efecto que no se ve venir:
+    en el modo normal el árbol de tiles se congela y three deja de recorrerlo, pero aquí no
+    se congela, así que cada frame se recomponen las matrices de todos los tiles vivos
+    —objetos que no se mueven— y ese coste sube en línea recta con la memoria. Es el mando
+    de los tres que más se nota en los fps.
 
 El coste de carga crece con el **cuadrado** del radio y con el **cuadrado** del inverso de
 la calidad. Duplicar el radio es 4× de trabajo. El menú te da una estimación en vivo. Todos
