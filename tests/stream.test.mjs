@@ -8,7 +8,7 @@
  * una es aritmética de tiempo y distancia, la otra de matrices.
  */
 import { Matrix4, Vector3, Sphere, Quaternion, Euler } from 'three';
-import { createRefreshClock, recenterRegions, createTextureQueue, createStream, QUEUE_COMPACT_THRESHOLD, MIN_MOVE } from '../src/stream.js';
+import { createRefreshClock, recenterRegions, createTextureQueue, createStream, QUEUE_COMPACT_THRESHOLD, MIN_MOVE, RETRY_INTERVAL_S } from '../src/stream.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -277,6 +277,7 @@ const hacerTiles = () => {
 		group: { matrixWorld: new Matrix4() },
 		lruCache: { cachedBytes: 7 * 1048576, minBytesSize: 0, maxBytesSize: 0 },
 		recorridos: 0,
+		reintentos: 0,
 		// El recorrido quema tiempo de verdad, y no es un adorno: `traversalMs` se
 		// mide con el reloj real, no con el falso de la cola de texturas. Con un
 		// `update()` instantáneo, exigir que el OSD reciba un número mayor que cero
@@ -288,6 +289,7 @@ const hacerTiles = () => {
 			this.recorridos ++;
 
 		},
+		resetFailedTiles() { this.reintentos ++; },
 		addEventListener( tipo, fn ) { ( oyentes[ tipo ] ||= [] ).push( fn ); },
 		removeEventListener( tipo, fn ) { oyentes[ tipo ] = ( oyentes[ tipo ] || [] ).filter( f => f !== fn ); },
 		emitir( tipo, ev ) { for ( const fn of oyentes[ tipo ] || [] ) fn( ev ); },
@@ -344,6 +346,55 @@ subidas.length = 0;
 tiles.emitir( 'load-model', { scene: modelo( 'z1' ) } );
 stream.update( 6000, new Vector3( 1400, 6, 7 ) );
 check( 'tras soltarlo ya no apunta nada', subidas.length === 0 );
+
+console.log( '\n== los tiles que fallan se reintentan, con freno ==' );
+
+// Un tile que falla se queda marcado como fallido y nadie vuelve a pedirlo; la
+// caché tampoco lo suelta mientras siga dentro de la esfera de carga. Sin
+// reintento, un corte de red deja una burbuja basta clavada para el resto del
+// vuelo. Con reintento en cada turno, deja una tormenta de peticiones contra una
+// red que sigue caída.
+const tilesFallos = hacerTiles();
+const esferasFallos = [ { sphere: new Sphere( new Vector3(), 1100 ) } ];
+const conFallos = createStream( {
+	tiles: tilesFallos, renderer, regions: esferasFallos,
+	config: { stream: { enabled: true, interval: 1, budgetMs: 1000, memoryMb: 1024 } },
+} );
+
+// El dron se queda parado en el aire a propósito: es el caso que de verdad
+// arriesga algo, porque sin movimiento no hay turno de recorrido y desmarcar los
+// tiles no le pide nada a la red por su cuenta.
+const parado = new Vector3( 0, 100, 0 );
+
+conFallos.update( 0, parado );
+conFallos.update( 5000, parado );
+check( 'un vuelo sin fallos no paga ni un reintento',
+	tilesFallos.reintentos === 0 && tilesFallos.recorridos === 1 );
+
+tilesFallos.emitir( 'load-error', { error: new Error( '503' ) } );
+conFallos.update( 5016, parado );
+check( 'un tile que falla se reintenta aunque el dron lleve un rato parado',
+	tilesFallos.reintentos === 1 );
+check( 'y el reintento se cobra su turno de recorrido, que es quien vuelve a pedir el tile',
+	tilesFallos.recorridos === 2 );
+
+conFallos.update( 5032, parado );
+check( 'sin fallos nuevos no se reintenta otra vez',
+	tilesFallos.reintentos === 1 && tilesFallos.recorridos === 2 );
+
+// Otro fallo enseguida: el freno no es sólo "hay fallos", también "ha pasado un
+// tiempo". Si no, una red caída daría un reintento por frame.
+tilesFallos.emitir( 'load-error', { error: new Error( '503' ) } );
+conFallos.update( 6000, parado );
+check( 'un fallo nuevo no dispara el reintento antes de tiempo', tilesFallos.reintentos === 1 );
+
+conFallos.update( 5016 + RETRY_INTERVAL_S * 1000, parado );
+check( 'cumplido el intervalo, con fallos pendientes, se reintenta', tilesFallos.reintentos === 2 );
+
+check( 'la espera entre reintentos es razonable: más que un corte de wifi, menos que un vuelo',
+	RETRY_INTERVAL_S >= 5 && RETRY_INTERVAL_S <= 60, `${ RETRY_INTERVAL_S } s` );
+
+conFallos.dispose();
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
 process.exit( fails === 0 ? 0 : 1 );

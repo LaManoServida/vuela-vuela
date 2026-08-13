@@ -255,6 +255,14 @@ export function createTextureQueue( { renderer, budgetMs, now = () => performanc
 
 }
 
+// Cada cuánto se les da otra oportunidad a los tiles que fallaron. Un corte de
+// wifi o un 5xx duran segundos, así que reintentar antes es tirar peticiones
+// contra una red que sigue caída; y diez segundos es mucho menos de lo que dura
+// la sensación de haberse quedado con un trozo basto delante. Con el freno de
+// «sólo si hay fallos nuevos», una red caída de verdad cuesta un reintento cada
+// diez segundos y no uno por turno.
+export const RETRY_INTERVAL_S = 10;
+
 /**
  * El modo de exploración, montado sobre un tileset ya precargado.
  *
@@ -280,6 +288,8 @@ export function createStream( { tiles, renderer, regions, config } ) {
 	// wifi de dos segundos no puede echar de la partida. Se cuenta y se sigue;
 	// como mucho ese trozo se ve basto.
 	let errors = 0;
+	let retriedErrors = 0;
+	let lastRetryMs = - Infinity;
 	const onError = () => {
 
 		errors ++;
@@ -305,7 +315,32 @@ export function createStream( { tiles, renderer, regions, config } ) {
 			tiles.lruCache.minBytesSize = cache.min;
 			tiles.lruCache.maxBytesSize = cache.max;
 
-			if ( clock.due( nowMs, position ) ) {
+			// Un tile que falla se queda marcado como fallido y nadie vuelve a
+			// pedirlo nunca; tampoco lo suelta la caché mientras siga dentro de la
+			// esfera de carga. Sin esto, un 5xx o un corte de wifi de dos segundos
+			// dejaban una burbuja basta ahí clavada para el resto del vuelo.
+			//
+			// El reintento se cobra su propio turno de recorrido, y no es un
+			// capricho: desmarcar los tiles no pide nada a la red, quien los vuelve
+			// a pedir es el recorrido del árbol. Si el corte te pilla parado no
+			// habría turno nunca y el reintento no serviría de nada.
+			//
+			// La primera condición es la que hace que un vuelo limpio no pague por
+			// esto: una comparación de enteros por frame y a otra cosa.
+			const retry = errors > retriedErrors && nowMs - lastRetryMs >= RETRY_INTERVAL_S * 1000;
+
+			if ( retry ) {
+
+				tiles.resetFailedTiles();
+				retriedErrors = errors;
+				lastRetryMs = nowMs;
+
+			}
+
+			// El reloj se consulta siempre, también en un turno de reintento: así el
+			// reintento gasta el turno que tocaba en vez de encadenar dos recorridos
+			// en dos frames seguidos.
+			if ( clock.due( nowMs, position ) || retry ) {
 
 				recenterRegions( regions, tiles.group, position );
 
