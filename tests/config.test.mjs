@@ -329,6 +329,16 @@ const mainSource = await read( 'main.js' );
 check( 'la escala de la niebla vive en un solo sitio',
 	! /0\.00012/.test( mainSource ) && ( worldSource.match( /0\.00012/g ) || [] ).length === 1 );
 
+// Y lo mismo con el presupuesto de memoria de la caché de tiles: el montaje del
+// tileset lo escribe una vez y cada turno del modo de exploración lo reescribe
+// con el valor del deslizador. Copiado en los dos sitios, tocar uno haría que la
+// caché cambiara de tamaño sola en el primer turno de vuelo.
+const streamSource = await read( 'stream.js' );
+check( 'el presupuesto de memoria de la caché vive en un solo sitio',
+	! /1048576|1\.25/.test( worldSource )
+	&& ( streamSource.match( /1048576/g ) || [] ).length === 1
+	&& ( streamSource.match( /1\.25/g ) || [] ).length === 1 );
+
 console.log( '\n== el panel de mando vive dentro de los ajustes ==' );
 
 // Tuvo hueco propio en la pausa y se montaba aparte desde `main.js`. Ahora es

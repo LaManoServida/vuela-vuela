@@ -11,6 +11,7 @@ import {
 	LoadRegionPlugin,
 	SphereRegion,
 } from '3d-tiles-renderer/plugins';
+import { cacheBytesFor } from './stream.js';
 
 export const NEAR = 0.15;
 export const FAR = 40000;
@@ -238,9 +239,9 @@ export function createTiles( config, scene, camera, renderer ) {
 
 	if ( config.stream.enabled ) {
 
-		const bytes = config.stream.memoryMb * 1048576;
-		tiles.lruCache.minBytesSize = bytes;
-		tiles.lruCache.maxBytesSize = bytes * 1.25;
+		const cache = cacheBytesFor( config );
+		tiles.lruCache.minBytesSize = cache.min;
+		tiles.lruCache.maxBytesSize = cache.max;
 
 	} else {
 

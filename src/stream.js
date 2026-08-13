@@ -101,6 +101,27 @@ export function recenterRegions( regions, group, position ) {
 
 }
 
+// Margen entre el mínimo y el máximo de bytes de la caché. La caché sólo empieza
+// a desalojar cuando pasa del máximo, y desaloja hasta bajar del mínimo: sin
+// margen, cada tile que llega dispararía un desalojo y el vuelo se iría en
+// desalojar de uno en uno rozando el techo todo el rato.
+export const CACHE_HEADROOM = 1.25;
+
+/**
+ * Los dos topes de bytes de la caché de tiles que corresponden a la
+ * configuración dada.
+ *
+ * Vive aquí y se exporta porque lo usan dos sitios —el montaje del tileset en
+ * `world.js` y cada turno del modo, que relee el deslizador—, y si divergen la
+ * caché cambiaría de tamaño sola en el primer turno de vuelo.
+ */
+export const cacheBytesFor = config => {
+
+	const bytes = config.stream.memoryMb * 1048576;
+	return { min: bytes, max: bytes * CACHE_HEADROOM };
+
+};
+
 // Umbral de compactación de la cola de texturas: por debajo de esto, el hueco
 // que dejan las texturas ya subidas es pequeño frente al coste del propio
 // `splice`, así que no vale la pena tocar el array. Un vuelo normal ni se
@@ -264,11 +285,9 @@ export function createStream( { tiles, renderer, regions, config } ) {
 
 			// El desalojo no es higiene: cuantos menos tiles vivos, más barato el
 			// recorrido del árbol, que es la única parte que no se puede trocear.
-			// El margen entre mínimo y máximo es lo que evita que la caché esté
-			// desalojando en cada turno al rozar el techo.
-			const bytes = config.stream.memoryMb * 1048576;
-			tiles.lruCache.minBytesSize = bytes;
-			tiles.lruCache.maxBytesSize = bytes * 1.25;
+			const cache = cacheBytesFor( config );
+			tiles.lruCache.minBytesSize = cache.min;
+			tiles.lruCache.maxBytesSize = cache.max;
 
 			if ( clock.due( nowMs, position ) ) {
 
