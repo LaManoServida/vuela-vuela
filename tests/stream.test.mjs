@@ -8,7 +8,7 @@
  * una es aritmética de tiempo y distancia, la otra de matrices.
  */
 import { Matrix4, Vector3, Sphere, Quaternion, Euler } from 'three';
-import { createRefreshClock, recenterRegions, MIN_MOVE } from '../src/stream.js';
+import { createRefreshClock, recenterRegions, createTextureQueue, MIN_MOVE } from '../src/stream.js';
 
 let fails = 0;
 const check = ( name, cond, info = '' ) => {
@@ -99,6 +99,66 @@ check( 'con rotación y traslación, deshace también la rotación',
 	`${ localRotado.toArray().join( ', ' ) } vs ${ esperado.toArray().join( ', ' ) }` );
 check( 'la esfera rotada queda en ese mismo punto',
 	regionRotada[ 0 ].sphere.center.distanceTo( esperado ) < 1e-9 );
+
+console.log( '\n== el goteo de texturas ==' );
+
+// El reloj es falso y lo mueve el propio trabajo: cada textura subida cuesta
+// 2 ms. Así el presupuesto se puede comprobar contando, sin depender de lo
+// rápido que vaya la máquina donde corre el test.
+let ahora = 0;
+const subidas = [];
+const renderer = { initTexture: t => { subidas.push( t ); ahora += 2; } };
+
+// Un modelo del tileset visto como lo ve la cola: un árbol que se recorre y del
+// que salen materiales con texturas.
+const modelo = ( ...mapas ) => ( {
+	traverse( fn ) {
+
+		for ( const map of mapas ) fn( { material: { map } } );
+
+	},
+} );
+
+const cola = createTextureQueue( { renderer, budgetMs: 5, now: () => ahora } );
+
+cola.enqueue( modelo( 'a', 'b', 'c', 'd', 'e', 'f' ) );
+check( 'la cola apunta las texturas del modelo que llega', cola.pending === 6 );
+
+check( 'el primer turno se para al agotar el presupuesto', cola.drain() === 3, `${ subidas.length } subidas` );
+check( 'y deja el resto pendiente', cola.pending === 3 );
+
+check( 'el turno siguiente retoma exactamente donde iba', cola.drain() === 3 );
+check( 'sin repetir ni saltarse ninguna', subidas.join( '' ) === 'abcdef', subidas.join( '' ) );
+check( 'y con la cola vacía no hace nada', cola.drain() === 0 && cola.pending === 0 );
+
+// El presupuesto se lee en cada turno: es un deslizador de la pausa.
+ahora = 0;
+cola.enqueue( modelo( 'g', 'h', 'i', 'j' ) );
+cola.budgetMs = 1;
+check( 'con el presupuesto recortado en caliente sube menos', cola.drain() === 1 );
+
+// Una textura suelta que falle no puede parar el goteo: en vuelo eso sería
+// quedarse sin cargar nada más durante el resto de la partida.
+ahora = 0;
+const roto = { initTexture: t => { ahora += 2; if ( t === 'mala' ) throw new Error( 'textura rota' ); } };
+const colaRota = createTextureQueue( { renderer: roto, budgetMs: 5, now: () => ahora } );
+colaRota.enqueue( modelo( 'mala', 'buena' ) );
+check( 'una textura rota no para el goteo', colaRota.drain() === 2 && colaRota.pending === 0 );
+
+// Los tiles fotogramétricos traen un material por malla, pero three admite
+// listas de materiales y el `map` no es el único mapa posible.
+ahora = 0;
+const variado = createTextureQueue( { renderer, budgetMs: 1000, now: () => ahora } );
+variado.enqueue( {
+	traverse( fn ) {
+
+		fn( { material: [ { map: 'm1' }, { map: 'm2' } ] } );
+		fn( { material: { emissiveMap: 'e1', normalMap: 'n1' } } );
+		fn( {} );   // un nodo sin material, que los hay
+
+	},
+} );
+check( 'recoge listas de materiales y los mapas que no son el difuso', variado.pending === 4 );
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
 process.exit( fails === 0 ? 0 : 1 );

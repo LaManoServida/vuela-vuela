@@ -100,3 +100,99 @@ export function recenterRegions( regions, group, position ) {
 	return _local;
 
 }
+
+/**
+ * Cola de texturas por subir a la GPU, con techo por frame.
+ *
+ * Una textura llega a la GPU, por defecto, la primera vez que se dibuja. Con
+ * miles de tiles eso es un goteo de micro-tirones durante todo el vuelo, y por
+ * eso la precarga las fuerza todas antes de despegar. Aquí no se pueden forzar
+ * todas: llegan sin parar. Se fuerzan a plazos, con un techo que no se rebasa
+ * aunque queden mil pendientes — y ése es exactamente el punto donde se decide
+ * romper la nitidez para no romper la fluidez.
+ *
+ * `budgetMs` es público porque es un deslizador de la pausa, y `now` se puede
+ * sustituir para poder probar el presupuesto contando en vez de cronometrando.
+ */
+export function createTextureQueue( { renderer, budgetMs, now = () => performance.now() } ) {
+
+	const pending = [];
+
+	// Cursor en vez de `shift()`: en un vuelo sin final esta lista pasa por
+	// decenas de miles de texturas, y sacar por la cabeza mueve el array entero
+	// cada vez. Se compacta de tarde en tarde, cuando lo consumido pesa más que
+	// lo que queda.
+	let head = 0;
+
+	return {
+
+		budgetMs,
+
+		get pending() {
+
+			return pending.length - head;
+
+		},
+
+		/** Apunta las texturas de un modelo recién cargado. */
+		enqueue( scene ) {
+
+			scene.traverse( child => {
+
+				const material = child.material;
+				if ( ! material ) return;
+
+				const list = Array.isArray( material ) ? material : [ material ];
+				for ( const m of list ) {
+
+					for ( const key of [ 'map', 'emissiveMap', 'normalMap' ] ) {
+
+						if ( m[ key ] ) pending.push( m[ key ] );
+
+					}
+
+				}
+
+			} );
+
+		},
+
+		/** Sube lo que quepa en el presupuesto. Devuelve cuántas subió. */
+		drain() {
+
+			const end = now() + this.budgetMs;
+			let done = 0;
+
+			while ( head < pending.length && now() < end ) {
+
+				try {
+
+					renderer.initTexture( pending[ head ] );
+
+				} catch ( e ) {
+
+					// Una textura suelta que falle no puede parar el goteo: eso
+					// sería quedarse sin cargar nada más el resto del vuelo.
+
+				}
+
+				pending[ head ] = null;
+				head ++;
+				done ++;
+
+			}
+
+			if ( head > 4096 && head * 2 > pending.length ) {
+
+				pending.splice( 0, head );
+				head = 0;
+
+			}
+
+			return done;
+
+		},
+
+	};
+
+}
