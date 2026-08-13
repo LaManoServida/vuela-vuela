@@ -207,9 +207,27 @@ export function createTextureQueue( { renderer, budgetMs, now = () => performanc
 
 			while ( head < pending.length && now() < end ) {
 
+				const texture = pending[ head ];
+				pending[ head ] = null;
+				head ++;
+
+				// La cola guarda referencias fuertes, así que la caché puede haber
+				// desalojado el tile mientras su textura esperaba turno —basta con
+				// pausar un rato: los modelos siguen llegando y el goteo no corre—.
+				// Al desalojar, la librería cierra el `ImageBitmap` y llama a
+				// `dispose()`. Subir eso a la GPU no sólo no sirve: three crea una
+				// textura nueva cuyo `dispose` ya se disparó y no volverá a
+				// dispararse, así que el handle queda huérfano para siempre. Es una
+				// fuga de VRAM que ni siquiera sale en los MB del OSD, porque esos
+				// son los de la caché. Un bitmap cerrado se delata en que se queda
+				// sin ancho ni alto; lo que no sabemos medir se intenta subir como
+				// siempre.
+				const image = texture && texture.image;
+				if ( image && ( image.width === 0 || image.height === 0 ) ) continue;
+
 				try {
 
-					renderer.initTexture( pending[ head ] );
+					renderer.initTexture( texture );
 
 				} catch ( e ) {
 
@@ -218,8 +236,6 @@ export function createTextureQueue( { renderer, budgetMs, now = () => performanc
 
 				}
 
-				pending[ head ] = null;
-				head ++;
 				done ++;
 
 			}

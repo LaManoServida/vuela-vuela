@@ -168,6 +168,41 @@ const compartida = createTextureQueue( { renderer, budgetMs: 1000, now: () => ah
 compartida.enqueue( modelo( 'x', 'x', 'x' ) );
 check( 'mallas que comparten textura no la duplican en la cola', compartida.pending === 1 );
 
+console.log( '\n== texturas que la caché desalojó mientras esperaban turno ==' );
+
+// La cola guarda referencias fuertes, así que puede quedarse con texturas de
+// tiles que la caché ya soltó: basta pausar un rato con la caché en el techo
+// —los modelos siguen llegando, el goteo no corre— y reanudar. Al desalojar, la
+// librería cierra el `ImageBitmap` y llama a `dispose()`: subir eso a la GPU
+// deja un handle huérfano que nadie va a liberar, una fuga de VRAM que no sale
+// en los MB del OSD. Un bitmap cerrado se queda sin ancho ni alto, y ése es el
+// guardián.
+const viva = { nombre: 'viva', image: { width: 256, height: 256 } };
+const muerta = { nombre: 'muerta', image: { width: 0, height: 0 } };
+const otraViva = { nombre: 'otra', image: { width: 256, height: 256 } };
+
+ahora = 0;
+const subidasVivas = [];
+const rendererVivo = { initTexture: t => { subidasVivas.push( t ); ahora += 2; } };
+const conMuerta = createTextureQueue( { renderer: rendererVivo, budgetMs: 1000, now: () => ahora } );
+conMuerta.enqueue( modelo( viva, muerta, otraViva ) );
+
+const subidasDelTurno = conMuerta.drain();
+check( 'la textura muerta no llega a la GPU', ! subidasVivas.includes( muerta ) );
+check( 'las vivas sí, y por orden, sin que la muerta las descoloque',
+	subidasVivas.map( t => t.nombre ).join( ',' ) === 'viva,otra', subidasVivas.map( t => t.nombre ).join( ',' ) );
+check( 'y la muerta no se queda atascada en la cola', conMuerta.pending === 0 );
+check( 'el turno cuenta las que subió de verdad, no las que se saltó', subidasDelTurno === 2 );
+
+// Saltarse una muerta tampoco puede gastar presupuesto: con dos texturas de
+// coste 2 ms y un techo de 4, las dos vivas tienen que caber en el mismo turno
+// aunque la muerta vaya delante.
+ahora = 0;
+subidasVivas.length = 0;
+const apretada = createTextureQueue( { renderer: rendererVivo, budgetMs: 4, now: () => ahora } );
+apretada.enqueue( modelo( muerta, viva, otraViva ) );
+check( 'la muerta no le come el presupuesto a las vivas', apretada.drain() === 2 && apretada.pending === 0 );
+
 console.log( '\n== compactación de la cola de texturas ==' );
 
 // El caso que de verdad arriesga algo no es compactar con la cola ya vacía
