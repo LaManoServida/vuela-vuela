@@ -18,6 +18,7 @@ export class Hud {
 			power: document.getElementById( 'osd-power' ),
 			fps: document.getElementById( 'osd-fps' ),
 			stutters: document.getElementById( 'osd-stutters' ),
+			stream: document.getElementById( 'osd-stream' ),
 			throttle: document.getElementById( 'osd-throttle' ),
 			mode: document.getElementById( 'osd-mode' ),
 			speed: document.getElementById( 'osd-speed' ),
@@ -80,7 +81,7 @@ export class Hud {
 	}
 
 	/** @param {number} frameMs tiempo del frame anterior en ms */
-	update( frameMs, drone, controls, config ) {
+	update( frameMs, drone, controls, config, stream = null ) {
 
 		this.samples[ this.cursor ] = frameMs;
 		this.cursor = ( this.cursor + 1 ) % SAMPLES;
@@ -109,7 +110,7 @@ export class Hud {
 			this._fpsAccum = 0;
 			this._fpsFrames = 0;
 			this._textAccum = 0;
-			this.updateText( drone, controls, config );
+			this.updateText( drone, controls, config, stream );
 
 		}
 
@@ -117,7 +118,7 @@ export class Hud {
 
 	}
 
-	updateText( drone, controls, config ) {
+	updateText( drone, controls, config, stream ) {
 
 		const el = this.el;
 		const t = drone.flightTime;
@@ -175,6 +176,23 @@ export class Hud {
 		// correcto (salir hacia adelante) es el contrario del instintivo.
 		const vrs = drone.props.reduce( ( a, p ) => a + p.vrs, 0 ) / 4;
 		el.vrs.hidden = ! ( vrs > 0.45 && drone.velocity.y < - 3 && ! drone.crashed );
+
+		// Carga continua. Estos dos números son con los que se ajusta el modo de
+		// exploración, y a ojo no se aciertan: el coste del recorrido del árbol
+		// —la única parte que no se puede trocear, así que si se dispara sale
+		// como un tirón por turno— y cuánta memoria ocupan los tiles vivos, que
+		// es lo que separa un vuelo largo de una pestaña muerta.
+		el.stream.hidden = ! stream;
+
+		if ( stream ) {
+
+			el.stream.textContent =
+				`${ stream.traversalMs.toFixed( 1 ) } ms · ${ ( stream.bytes / 1048576 ).toFixed( 0 ) } MB`
+				+ ( stream.textures ? ` · ${ stream.textures } tex` : '' )
+				+ ( stream.errors ? ` · ${ stream.errors } fallos` : '' );
+			el.stream.style.color = stream.traversalMs > 8 ? '#f59e0b' : '';
+
+		}
 
 		el.crash.hidden = ! drone.crashed;
 

@@ -551,7 +551,7 @@ function frame( now ) {
 
 	renderer.render( scene, camera );
 
-	hud.update( frameMs, drone, controls, config );
+	hud.update( frameMs, drone, controls, config, world.stream?.stats );
 
 }
 
