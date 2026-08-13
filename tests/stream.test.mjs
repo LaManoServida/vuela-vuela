@@ -277,7 +277,17 @@ const hacerTiles = () => {
 		group: { matrixWorld: new Matrix4() },
 		lruCache: { cachedBytes: 7 * 1048576, minBytesSize: 0, maxBytesSize: 0 },
 		recorridos: 0,
-		update() { this.recorridos ++; },
+		// El recorrido quema tiempo de verdad, y no es un adorno: `traversalMs` se
+		// mide con el reloj real, no con el falso de la cola de texturas. Con un
+		// `update()` instantáneo, exigir que el OSD reciba un número mayor que cero
+		// no distinguiría una implementación que nunca escribe el campo.
+		update() {
+
+			const hasta = performance.now() + 1;
+			while ( performance.now() < hasta ) ;
+			this.recorridos ++;
+
+		},
 		addEventListener( tipo, fn ) { ( oyentes[ tipo ] ||= [] ).push( fn ); },
 		removeEventListener( tipo, fn ) { oyentes[ tipo ] = ( oyentes[ tipo ] || [] ).filter( f => f !== fn ); },
 		emitir( tipo, ev ) { for ( const fn of oyentes[ tipo ] || [] ) fn( ev ); },
@@ -316,7 +326,8 @@ stream.update( 2016, new Vector3( 500, 6, 7 ) );
 check( 'sus texturas suben en el turno siguiente', subidas.join( '' ) === 'v1v2', subidas.join( '' ) );
 check( 'y la cola queda vacía', stream.stats.textures === 0 );
 
-check( 'el OSD recibe el coste del recorrido', Number.isFinite( stream.stats.traversalMs ) );
+check( 'el OSD recibe el coste del recorrido', stream.stats.traversalMs > 0,
+	`${ stream.stats.traversalMs.toFixed( 2 ) } ms` );
 check( 'y la memoria viva', stream.stats.bytes === 7 * 1048576 );
 
 // Un tile que falle en vuelo se apunta y no echa del vuelo. Durante la precarga
