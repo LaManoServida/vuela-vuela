@@ -7,7 +7,7 @@
  * esferas de carga. El navegador no está, pero ninguna de las dos lo necesita:
  * una es aritmética de tiempo y distancia, la otra de matrices.
  */
-import { Matrix4, Vector3, Sphere } from 'three';
+import { Matrix4, Vector3, Sphere, Quaternion, Euler } from 'three';
 import { createRefreshClock, recenterRegions, MIN_MOVE } from '../src/stream.js';
 
 let fails = 0;
@@ -78,6 +78,27 @@ check( 'y ninguna cambia de radio',
 	regions[ 0 ].sphere.radius === 1100 && regions[ 1 ].sphere.radius === 22000 );
 check( 'devuelve esa misma posición en el marco del tileset',
 	local.equals( new Vector3( - 990, - 1980, - 2970 ) ) );
+
+// La matriz de verdad no es una traslación pura: el ReorientationPlugin también
+// rota, para dejar +Y arriba y +Z al norte. Con sólo traslación, una
+// implementación que se limitase a restar el origen del tileset pasaría este
+// test igual que la que deshace la rotación con `invert()`. El resultado
+// esperado se calcula aquí por otra vía —aplicando la rotación inversa a mano—
+// para no repetir el mismo cálculo que hace el propio módulo.
+const rotacion = new Quaternion().setFromEuler( new Euler( 0.3, 0.7, - 0.4, 'XYZ' ) );
+const traslacion = new Vector3( 500, - 700, 1200 );
+const groupRotado = { matrixWorld: new Matrix4().compose( traslacion, rotacion, new Vector3( 1, 1, 1 ) ) };
+const regionRotada = [ { sphere: new Sphere( new Vector3(), 500 ) } ];
+const posicionDron = new Vector3( 120, - 45, 980 );
+
+const localRotado = recenterRegions( regionRotada, groupRotado, posicionDron );
+const esperado = posicionDron.clone().sub( traslacion ).applyQuaternion( rotacion.clone().invert() );
+
+check( 'con rotación y traslación, deshace también la rotación',
+	localRotado.distanceTo( esperado ) < 1e-9,
+	`${ localRotado.toArray().join( ', ' ) } vs ${ esperado.toArray().join( ', ' ) }` );
+check( 'la esfera rotada queda en ese mismo punto',
+	regionRotada[ 0 ].sphere.center.distanceTo( esperado ) < 1e-9 );
 
 console.log( fails === 0 ? '\nTODO OK\n' : `\n${ fails } FALLOS\n` );
 process.exit( fails === 0 ? 0 : 1 );
