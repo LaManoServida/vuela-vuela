@@ -22,6 +22,24 @@ const BACKDROP_RADIUS = 22000;
 const BACKDROP_ERROR = 900;
 const MID_ERROR = 90;
 
+// Cuánto desaloja la caché de tiles en cada pasada, en exploración.
+//
+// El desalojo es la única parte del coste del modo que ni se trocea ni se mide:
+// lo encola `tiles.update()` como microtarea, así que corre cuando `frame()` ya
+// ha devuelto, fuera de `traversalMs` y fuera del presupuesto por frame. Y lo
+// que destruye cada pasada no es poco —geometría, materiales, texturas y el
+// `ImageBitmap.close()` de cada una—, porque la librería desaloja como mínimo
+// `unloadPercent` del presupuesto entero: con el 0,05 de fábrica y 1,5 GB de
+// caché, 75 MB de tiles de golpe, y la primera tormenta llega justo cuando la
+// caché toca techo, o sea a los veinte minutos de vuelo.
+//
+// Con 0,01 son 15 MB por pasada. No desaloja menos en total: al quedarse corta,
+// la librería vuelve a programarse sola en el siguiente frame, así que los 375
+// MB de margen entre el mínimo y el máximo se sueltan en veinticinco pasadas
+// seguidas en vez de en cinco. Se rompe la nitidez —el tile que se soltó tarda
+// un poco más en irse—, nunca la fluidez.
+const STREAM_UNLOAD_PERCENT = 0.01;
+
 // Escala física de la niebla exponencial: con `fogDensity` a 1.0 la mitad del
 // contraste se ha ido hacia los 7 km, que es lo que se ve en un día claro de
 // ciudad. Vive aquí y se exporta porque la usan dos sitios —la creación de la
@@ -242,6 +260,7 @@ export function createTiles( config, scene, camera, renderer ) {
 		const cache = cacheBytesFor( config );
 		tiles.lruCache.minBytesSize = cache.min;
 		tiles.lruCache.maxBytesSize = cache.max;
+		tiles.lruCache.unloadPercent = STREAM_UNLOAD_PERCENT;
 
 	} else {
 
