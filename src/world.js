@@ -223,11 +223,31 @@ export function createTiles( config, scene, camera, renderer ) {
 	// dibujaríamos la zona entera cada frame.
 	tiles.autoDisableRendererCulling = false;
 
-	// Nada se descarga: la zona cabe en memoria y la queremos entera.
+	// Qué se suelta y qué no.
+	//
+	// En el modo normal la zona es finita y la queremos entera: no se suelta
+	// nada. En exploración no hay zona finita que quepa, y el presupuesto de
+	// memoria es lo único que separa un vuelo largo de una pestaña muerta.
+	//
+	// El tope por número de tiles se deja alto en los dos casos para que la
+	// única regla en juego sea la de bytes: es la que se entiende, la que se
+	// enseña en el OSD y la que tiene deslizador. Dos reglas compitiendo darían
+	// desalojos que no se explican con lo que se ve en pantalla.
 	tiles.lruCache.minSize = 100000;
 	tiles.lruCache.maxSize = 120000;
-	tiles.lruCache.minBytesSize = Infinity;
-	tiles.lruCache.maxBytesSize = Infinity;
+
+	if ( config.stream.enabled ) {
+
+		const bytes = config.stream.memoryMb * 1048576;
+		tiles.lruCache.minBytesSize = bytes;
+		tiles.lruCache.maxBytesSize = bytes * 1.25;
+
+	} else {
+
+		tiles.lruCache.minBytesSize = Infinity;
+		tiles.lruCache.maxBytesSize = Infinity;
+
+	}
 
 	tiles.setCamera( camera );
 	tiles.setResolutionFromRenderer( camera, renderer );

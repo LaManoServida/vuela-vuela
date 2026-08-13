@@ -41,7 +41,11 @@ export async function preloadRegion( { tiles, renderer, scene, camera, config, s
 		const stats = await downloadEverything( { tiles, steps, signal } );
 		await uploadTextures( { tiles, renderer, steps, signal } );
 		await compileShaders( { tiles, renderer, scene, camera, steps, signal } );
-		freeze( tiles, config );
+
+		// Congelar el traversal es exactamente lo que hace finita la zona. En
+		// exploración tiene que seguir corriendo, porque es lo que descubre
+		// los tiles nuevos según la esfera de carga avanza con el dron.
+		if ( ! config.stream.enabled ) freeze( tiles );
 		return { ...stats, errors: errors.length };
 
 	} finally {
@@ -255,7 +259,7 @@ async function compileShaders( { tiles, renderer, scene, camera, steps, signal }
  * Congela el tileset: nada se descarga, nada se descarta, y las matrices del
  * subárbol dejan de recalcularse cada frame.
  */
-function freeze( tiles, config ) {
+function freeze( tiles ) {
 
 	tiles.group.updateMatrixWorld( true );
 
